@@ -27,12 +27,6 @@ function init() {
     if (activeEntry) {
         startTimer();
     }
-    
-    // Klätter-gubbe listeners
-    window.addEventListener('scroll', updateClimberPosition, { passive: true });
-    window.addEventListener('resize', updateClimberPosition, { passive: true });
-    // Kör direkt en gång
-    setTimeout(updateClimberPosition, 100);
 }
 
 function save() {
@@ -324,23 +318,6 @@ window.updateEntry = function(id, field, value) {
     updateStats();
 };
 
-// ---- KLÄTTRARGUBBEN SCROLL ----
-window.updateClimberPosition = function() {
-    const climber = document.getElementById('climber-figure');
-    if (!climber) return;
-    
-    const scrollY = window.scrollY || window.pageYOffset;
-    const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-    
-    let scrollPercent = scrollY / maxScroll;
-    scrollPercent = Math.max(0, Math.min(1, scrollPercent));
-    
-    // Fönstrets höjd minus gubbens höjd minus padding för botten
-    const maxMove = window.innerHeight - climber.offsetHeight - 100; 
-    
-    climber.style.transform = `translate(-50%, ${scrollPercent * maxMove}px)`;
-};
-
 // ---- UPPDATERA GRÄNSSNITT (UI) ----
 
 function updateStats() {
@@ -488,8 +465,6 @@ function render() {
             </div>
         `).join('');
     }
-    
-    setTimeout(updateClimberPosition, 50);
 }
 
 init();
