@@ -1,7 +1,25 @@
-// Ladda från localStorage om det finns, annars tomma värden
-let entries = JSON.parse(localStorage.getItem('work_hours')) || [];
-let activeEntry = JSON.parse(localStorage.getItem('active_session')) || null;
+// Ladda från localStorage om det finns, annars tomma värden. Try-catch för att undvika krasch.
+let entries = [];
+try {
+    const raw = JSON.parse(localStorage.getItem('work_hours')) || [];
+    entries = raw.filter(e => e && e.id && e.date); // Filtrera bort ev. korrupta entries
+} catch(e) {
+    console.error("Fel vid inläsning av pass:", e);
+    entries = [];
+}
+
+let activeEntry = null;
+try {
+    activeEntry = JSON.parse(localStorage.getItem('active_session')) || null;
+    if (activeEntry && (!activeEntry.id || !activeEntry.date)) {
+        activeEntry = null;
+    }
+} catch(e) {
+    console.error("Fel vid inläsning av aktivt pass:", e);
+}
+
 let hourlyWage = parseFloat(localStorage.getItem('hourly_wage')) || 0;
+let includeVacation = localStorage.getItem('include_vacation') === 'true';
 let timerInterval = null;
 
 // Elementreferenser
@@ -17,10 +35,20 @@ const exportModalPanel = document.getElementById('exportModalPanel');
 const settingsModalPanel = document.getElementById('settingsModalPanel');
 const ambientGlow = document.getElementById('ambientGlow');
 
+// Funktion för att göra anteckningar säkra att rendera (Förhindrar krasch om man skriver citationstecken)
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 function init() {
     const today = new Date();
     headerDate.innerText = today.toISOString().split('T')[0];
-    
     document.getElementById('manualDate').value = today.toISOString().split('T')[0];
     
     render();
@@ -77,6 +105,7 @@ function getPayPeriod(dateString) {
 // ---- SETTINGS / WAGE LOGIC ----
 window.openSettingsModal = function() {
     document.getElementById('settingsWage').value = hourlyWage || '';
+    document.getElementById('settingsVacation').checked = includeVacation;
     settingsModalPanel.classList.remove('hidden');
     manualFormPanel.classList.add('hidden');
     exportModalPanel.classList.add('hidden');
@@ -89,8 +118,11 @@ window.closeSettingsModal = function() {
 
 window.saveSettings = function() {
     const wage = parseFloat(document.getElementById('settingsWage').value) || 0;
+    const vac = document.getElementById('settingsVacation').checked;
     hourlyWage = wage;
+    includeVacation = vac;
     localStorage.setItem('hourly_wage', wage);
+    localStorage.setItem('include_vacation', vac);
     closeSettingsModal();
     updateStats();
     showToast("Inställningar sparade!");
@@ -105,7 +137,7 @@ window.openExportModal = function() {
     
     const periods = new Set();
     entries.forEach(e => {
-        periods.add(getPayPeriod(e.date));
+        if(e.date) periods.add(getPayPeriod(e.date));
     });
     
     const sortedPeriods = Array.from(periods).sort((a, b) => b.localeCompare(a));
@@ -119,13 +151,8 @@ window.openExportModal = function() {
         const currentMonthIdx = parseInt(m) - 1;
         const prevMonthIdx = currentMonthIdx === 0 ? 11 : currentMonthIdx - 1;
         
-        const monthName = monthsSv[currentMonthIdx];
-        const monthNameCap = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-        
-        const currentMonthShort = monthsShortSv[currentMonthIdx];
-        const prevMonthShort = monthsShortSv[prevMonthIdx];
-        
-        return `<option value="${p}">${monthNameCap} ${y} (26 ${prevMonthShort} - 25 ${currentMonthShort})</option>`;
+        const monthNameCap = monthsSv[currentMonthIdx].charAt(0).toUpperCase() + monthsSv[currentMonthIdx].slice(1);
+        return `<option value="${p}">${monthNameCap} ${y} (26 ${monthsShortSv[prevMonthIdx]} - 25 ${monthsShortSv[currentMonthIdx]})</option>`;
     }).join('') + '<option value="ALL">Exportera alla pass i historiken</option>';
     
     manualFormPanel.classList.add('hidden');
@@ -144,7 +171,7 @@ window.executeExport = function() {
     let fileNameSuffix = "Alla_pass";
     
     if (period !== "ALL") {
-        filteredEntries = entries.filter(e => getPayPeriod(e.date) === period);
+        filteredEntries = entries.filter(e => e.date && getPayPeriod(e.date) === period);
         fileNameSuffix = `Löneperiod_${period}`;
     }
     
@@ -158,15 +185,19 @@ window.executeExport = function() {
     
     const rows = filteredEntries.map(e => {
         let hours = 0;
-        if (e.endTime) {
+        if (e.endTime && e.startTime) {
             const start = new Date(`2000-01-01T${e.startTime}`);
             const end = new Date(`2000-01-01T${e.endTime}`);
-            hours = (end - start) / (1000 * 60 * 60);
-            totalHours += hours;
+            if (!isNaN(start) && !isNaN(end)) {
+                let diff = (end - start) / (1000 * 60 * 60);
+                if (diff < 0) diff += 24; // Fix för nattpass över midnatt
+                hours = diff;
+                totalHours += hours;
+            }
         }
         const safeNotes = e.notes ? e.notes.replace(/"/g, '""') : '';
         const hoursStr = hours.toFixed(2).replace('.', ',');
-        return [e.date, e.startTime, e.endTime || '', hoursStr, `"${safeNotes}"`];
+        return [e.date || '', e.startTime || '', e.endTime || '', hoursStr, `"${safeNotes}"`];
     });
 
     const totalHoursStr = totalHours.toFixed(2).replace('.', ',');
@@ -275,7 +306,7 @@ function startTimer() {
 
     timerInterval = setInterval(() => {
         const timeEl = document.getElementById('elapsedTimeDisplay');
-        if (timeEl && activeEntry) {
+        if (timeEl && activeEntry && activeEntry.startTime) {
             const start = new Date(`${activeEntry.date}T${activeEntry.startTime}:00`);
             const now = new Date();
             const diffSec = Math.floor((now - start) / 1000);
@@ -329,141 +360,166 @@ function updateStats() {
     let totalHours = 0;
     
     entries.forEach(e => {
-        if (e.endTime) {
+        if (e.endTime && e.startTime) {
             const start = new Date(`2000-01-01T${e.startTime}`);
             const end = new Date(`2000-01-01T${e.endTime}`);
-            const hrs = (end - start) / (1000 * 60 * 60);
-            totalHours += hrs;
-            if (getPayPeriod(e.date) === currentPayPeriod) {
-                periodHours += hrs;
+            if (!isNaN(start) && !isNaN(end)) {
+                let diff = (end - start) / (1000 * 60 * 60);
+                if (diff < 0) diff += 24; // Om man jobbar över midnatt
+                totalHours += diff;
+                if (e.date && getPayPeriod(e.date) === currentPayPeriod) {
+                    periodHours += diff;
+                }
             }
         }
     });
     
     statMonthHours.innerText = periodHours.toFixed(1);
     
-    // Räkna ut estimerad lön
-    const periodEarn = Math.round(periodHours * hourlyWage);
-    const totalEarn = Math.round(totalHours * hourlyWage);
+    // Räkna ut estimerad lön och inkludera 12% semesterersättning om vald
+    const multiplier = includeVacation ? 1.12 : 1.0;
+    const periodEarn = Math.round(periodHours * hourlyWage * multiplier);
+    const totalEarn = Math.round(totalHours * hourlyWage * multiplier);
     
     statPeriodEarnings.innerText = periodEarn.toLocaleString('sv-SE');
     statTotalEarnings.innerText = totalEarn.toLocaleString('sv-SE');
+
+    // Ändra texten på stat-korten om semesterersättning är aktiv
+    const periodLabel = document.getElementById('periodEarnLabel');
+    const totalLabel = document.getElementById('totalEarnLabel');
+    if (periodLabel && totalLabel) {
+        if (includeVacation) {
+            periodLabel.innerHTML = '<i class="ph-fill ph-coins text-emerald-500 text-base"></i> LÖN (+12% SEM)';
+            totalLabel.innerHTML = '<i class="ph-fill ph-vault text-purple-500 text-base"></i> TOTAL (+12% SEM)';
+        } else {
+            periodLabel.innerHTML = '<i class="ph-fill ph-coins text-emerald-500 text-base"></i> LÖN (PERIOD)';
+            totalLabel.innerHTML = '<i class="ph-fill ph-vault text-purple-500 text-base"></i> ALL TIME (KR)';
+        }
+    }
 }
 
 function render() {
-    updateStats();
+    try {
+        updateStats();
 
-    // Uppdatera stämpelklockan
-    if (!activeEntry) {
-        clockUI.innerHTML = `
-            <div class="text-center space-y-6">
-                <div class="w-20 h-20 bg-zinc-950/80 border border-zinc-800 rounded-2xl flex items-center justify-center mx-auto mb-2 shadow-inner">
-                    <i class="ph ph-clock-countdown text-4xl text-zinc-600"></i>
-                </div>
-                <div>
-                    <h2 class="text-3xl font-extrabold text-white tracking-tight">Klar för arbetspasset?</h2>
-                    <p class="text-zinc-400 text-xs mt-1.5 max-w-sm mx-auto font-medium">Stämpla in nu så håller vi koll på tiden, aktiviteterna och hjälper dig vid utstämpling.</p>
-                </div>
-                
-                <div class="flex flex-col items-center gap-2 pt-2">
-                    <button onclick="clockIn()" class="group relative flex items-center justify-center gap-3 bg-amber-500 hover:bg-amber-600 text-zinc-950 px-10 py-5 rounded-2xl text-base font-extrabold transition-all shadow-[0_10px_35px_-5px_rgba(245,158,11,0.3)] hover:shadow-[0_15px_45px_-5px_rgba(245,158,11,0.5)] active:scale-95">
-                        <i class="ph-fill ph-play text-xl group-hover:scale-110 transition-transform"></i> Stämpla in här
-                    </button>
-                    <span class="text-[10px] uppercase font-bold text-zinc-500 tracking-[0.1em] mt-1 flex items-center gap-1.5">
-                        <span class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span> ONLINE & REDO
-                    </span>
-                </div>
-            </div>
-        `;
-    } else {
-        clockUI.innerHTML = `
-            <div class="text-center space-y-6">
-                <div class="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-1.5 rounded-full text-xs font-bold tracking-wide animate-pulse mb-1">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    PASS PÅGÅR
-                </div>
-                
-                <div class="space-y-1">
-                    <div id="elapsedTimeDisplay" class="text-6xl sm:text-7xl font-black text-white tracking-tighter font-mono bg-clip-text text-transparent bg-gradient-to-b from-white to-zinc-200">
-                        00:00:00
+        // Uppdatera stämpelklockan
+        if (!activeEntry) {
+            clockUI.innerHTML = `
+                <div class="text-center space-y-6">
+                    <div class="w-20 h-20 bg-zinc-950/80 border border-zinc-800 rounded-2xl flex items-center justify-center mx-auto mb-2 shadow-inner">
+                        <i class="ph ph-clock-countdown text-4xl text-zinc-600"></i>
                     </div>
-                    <div class="text-zinc-500 font-bold text-xs flex items-center justify-center gap-1.5 uppercase tracking-wide">
-                        <i class="ph ph-calendar"></i>
-                        Startade ${activeEntry.startTime} idag
+                    <div>
+                        <h2 class="text-3xl font-extrabold text-white tracking-tight">Klar för arbetspasset?</h2>
+                        <p class="text-zinc-400 text-xs mt-1.5 max-w-sm mx-auto font-medium">Stämpla in nu så håller vi koll på tiden, aktiviteterna och hjälper dig vid utstämpling.</p>
                     </div>
-                </div>
-                
-                <div class="flex flex-col items-center gap-2 pt-2">
-                    <button onclick="clockOut()" class="group relative flex items-center justify-center gap-3 bg-red-500 hover:bg-red-600 text-white px-10 py-5 rounded-2xl text-base font-extrabold transition-all shadow-[0_10px_35px_-5px_rgba(239,68,68,0.3)] hover:shadow-[0_15px_45px_-5px_rgba(239,68,68,0.5)] active:scale-95">
-                        <i class="ph-fill ph-square text-lg group-hover:scale-110 transition-transform"></i> Avsluta och spara
-                    </button>
-                    <span class="text-[10px] uppercase font-bold text-emerald-500 tracking-[0.1em] mt-1 flex items-center gap-1.5">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> LOGGAR TIMMAR JUST NU
-                    </span>
-                </div>
-            </div>
-        `;
-    }
-
-    // Uppdatera historiklistan
-    if (entries.length === 0) {
-        historyList.innerHTML = `
-            <div class="bg-zinc-900/40 border border-dashed border-zinc-800 p-12 rounded-3xl text-center text-zinc-500 flex flex-col items-center justify-center gap-4">
-                <div class="w-16 h-16 bg-zinc-950/40 rounded-2xl border border-zinc-800/80 flex items-center justify-center text-zinc-600">
-                    <i class="ph ph-briefcase-metal text-3xl"></i>
-                </div>
-                <div>
-                    <h3 class="font-bold text-zinc-300 text-sm">Här var det tomt</h3>
-                    <p class="text-xs mt-1 max-w-xs mx-auto">Det finns inga registrerade pass än. Så fort du stämplar ut eller lägger till pass manuellt visas de här.</p>
-                </div>
-            </div>
-        `;
-    } else {
-        historyList.innerHTML = entries.map(entry => `
-            <div class="card-entry bg-zinc-900/30 border border-zinc-800/60 p-4 sm:p-5 rounded-2xl hover:border-zinc-700/60 transition-all relative group">
-                
-                <button onclick="deleteEntry('${entry.id}')" class="absolute top-4 right-4 p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100" title="Radera pass">
-                    <i class="ph ph-trash text-lg"></i>
-                </button>
-
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                     
-                    <div class="md:col-span-3">
-                        <label class="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1 block">Datum</label>
-                        <div class="flex items-center gap-2 bg-zinc-950/40 border border-zinc-800/40 rounded-xl px-3.5 py-2 hover:border-zinc-700/40 transition-colors">
-                            <i class="ph ph-calendar text-amber-500/80 text-sm"></i>
-                            <input type="date" value="${entry.date}" onchange="updateEntry('${entry.id}', 'date', this.value)" class="bg-transparent font-bold text-zinc-100 text-sm border-none p-0 focus:ring-0 cursor-pointer w-full outline-none">
+                    <div class="flex flex-col items-center gap-2 pt-2">
+                        <button onclick="clockIn()" class="group relative flex items-center justify-center gap-3 bg-amber-500 hover:bg-amber-600 text-zinc-950 px-10 py-5 rounded-2xl text-base font-extrabold transition-all shadow-[0_10px_35px_-5px_rgba(245,158,11,0.3)] hover:shadow-[0_15px_45px_-5px_rgba(245,158,11,0.5)] active:scale-95">
+                            <i class="ph-fill ph-play text-xl group-hover:scale-110 transition-transform"></i> Stämpla in här
+                        </button>
+                        <span class="text-[10px] uppercase font-bold text-zinc-500 tracking-[0.1em] mt-1 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span> ONLINE & REDO
+                        </span>
+                    </div>
+                </div>
+            `;
+        } else {
+            clockUI.innerHTML = `
+                <div class="text-center space-y-6">
+                    <div class="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-1.5 rounded-full text-xs font-bold tracking-wide animate-pulse mb-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        PASS PÅGÅR
+                    </div>
+                    
+                    <div class="space-y-1">
+                        <div id="elapsedTimeDisplay" class="text-6xl sm:text-7xl font-black text-white tracking-tighter font-mono bg-clip-text text-transparent bg-gradient-to-b from-white to-zinc-200">
+                            00:00:00
+                        </div>
+                        <div class="text-zinc-500 font-bold text-xs flex items-center justify-center gap-1.5 uppercase tracking-wide">
+                            <i class="ph ph-calendar"></i>
+                            Startade ${activeEntry.startTime} idag
                         </div>
                     </div>
                     
-                    <div class="md:col-span-4 flex items-center gap-4">
-                        <div class="flex-1">
-                            <label class="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1 block">Start</label>
-                            <div class="flex items-center gap-2 bg-zinc-950/40 border border-zinc-800/40 rounded-xl px-3 py-2 hover:border-zinc-700/40 transition-colors">
-                                <i class="ph ph-clock-afternoon text-zinc-600 text-sm"></i>
-                                <input type="time" value="${entry.startTime}" onchange="updateEntry('${entry.id}', 'startTime', this.value)" class="bg-transparent font-medium text-zinc-200 text-sm border-none p-0 focus:ring-0 w-full outline-none">
-                            </div>
-                        </div>
-                        <div class="text-zinc-600 font-light mt-5">&mdash;</div>
-                        <div class="flex-1">
-                            <label class="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1 block">Slut</label>
-                            <div class="flex items-center gap-2 bg-zinc-950/40 border border-zinc-800/40 rounded-xl px-3 py-2 hover:border-zinc-700/40 transition-colors">
-                                <i class="ph ph-clock-countdown text-zinc-600 text-sm"></i>
-                                <input type="time" value="${entry.endTime || ''}" onchange="updateEntry('${entry.id}', 'endTime', this.value)" class="bg-transparent font-medium text-zinc-200 text-sm border-none p-0 focus:ring-0 w-full outline-none">
-                            </div>
-                        </div>
+                    <div class="flex flex-col items-center gap-2 pt-2">
+                        <button onclick="clockOut()" class="group relative flex items-center justify-center gap-3 bg-red-500 hover:bg-red-600 text-white px-10 py-5 rounded-2xl text-base font-extrabold transition-all shadow-[0_10px_35px_-5px_rgba(239,68,68,0.3)] hover:shadow-[0_15px_45px_-5px_rgba(239,68,68,0.5)] active:scale-95">
+                            <i class="ph-fill ph-square text-lg group-hover:scale-110 transition-transform"></i> Avsluta och spara
+                        </button>
+                        <span class="text-[10px] uppercase font-bold text-emerald-500 tracking-[0.1em] mt-1 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> LOGGAR TIMMAR JUST NU
+                        </span>
                     </div>
+                </div>
+            `;
+        }
 
-                    <div class="md:col-span-5 pt-1 md:pt-0">
-                        <label class="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1 block">Arbetsuppgift / Kund / Anteckning</label>
-                        <div class="flex items-center gap-2 bg-zinc-950/40 border border-zinc-800/40 rounded-xl px-3.5 py-2 hover:border-zinc-700/40 transition-colors">
-                            <i class="ph ph-pencil-simple text-zinc-600 text-sm"></i>
-                            <input type="text" placeholder="Fyll i detaljer för passet..." value="${entry.notes || ''}" onchange="updateEntry('${entry.id}', 'notes', this.value)" class="bg-transparent text-zinc-200 text-sm border-none p-0 focus:ring-0 w-full outline-none placeholder:text-zinc-700">
+        // Uppdatera historiklistan med skydd mot krasch
+        if (entries.length === 0) {
+            historyList.innerHTML = `
+                <div class="bg-zinc-900/40 border border-dashed border-zinc-800 p-12 rounded-3xl text-center text-zinc-500 flex flex-col items-center justify-center gap-4">
+                    <div class="w-16 h-16 bg-zinc-950/40 rounded-2xl border border-zinc-800/80 flex items-center justify-center text-zinc-600">
+                        <i class="ph ph-briefcase-metal text-3xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-zinc-300 text-sm">Här var det tomt</h3>
+                        <p class="text-xs mt-1 max-w-xs mx-auto">Det finns inga registrerade pass än. Så fort du stämplar ut eller lägger till pass manuellt visas de här.</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            historyList.innerHTML = entries.map(entry => `
+                <div class="card-entry bg-zinc-900/30 border border-zinc-800/60 p-4 sm:p-5 rounded-2xl hover:border-zinc-700/60 transition-all relative group">
+                    
+                    <button onclick="deleteEntry('${entry.id}')" class="absolute top-4 right-4 p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100" title="Radera pass">
+                        <i class="ph ph-trash text-lg"></i>
+                    </button>
+
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                        
+                        <div class="md:col-span-3">
+                            <label class="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1 block">Datum</label>
+                            <div class="flex items-center gap-2 bg-zinc-950/40 border border-zinc-800/40 rounded-xl px-3.5 py-2 hover:border-zinc-700/40 transition-colors">
+                                <i class="ph ph-calendar text-amber-500/80 text-sm"></i>
+                                <input type="date" value="${entry.date || ''}" onchange="updateEntry('${entry.id}', 'date', this.value)" class="bg-transparent font-bold text-zinc-100 text-sm border-none p-0 focus:ring-0 cursor-pointer w-full outline-none">
+                            </div>
+                        </div>
+                        
+                        <div class="md:col-span-4 flex items-center gap-4">
+                            <div class="flex-1">
+                                <label class="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1 block">Start</label>
+                                <div class="flex items-center gap-2 bg-zinc-950/40 border border-zinc-800/40 rounded-xl px-3 py-2 hover:border-zinc-700/40 transition-colors">
+                                    <i class="ph ph-clock-afternoon text-zinc-600 text-sm"></i>
+                                    <input type="time" value="${entry.startTime || ''}" onchange="updateEntry('${entry.id}', 'startTime', this.value)" class="bg-transparent font-medium text-zinc-200 text-sm border-none p-0 focus:ring-0 w-full outline-none">
+                                </div>
+                            </div>
+                            <div class="text-zinc-600 font-light mt-5">&mdash;</div>
+                            <div class="flex-1">
+                                <label class="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1 block">Slut</label>
+                                <div class="flex items-center gap-2 bg-zinc-950/40 border border-zinc-800/40 rounded-xl px-3 py-2 hover:border-zinc-700/40 transition-colors">
+                                    <i class="ph ph-clock-countdown text-zinc-600 text-sm"></i>
+                                    <input type="time" value="${entry.endTime || ''}" onchange="updateEntry('${entry.id}', 'endTime', this.value)" class="bg-transparent font-medium text-zinc-200 text-sm border-none p-0 focus:ring-0 w-full outline-none">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-5 pt-1 md:pt-0">
+                            <label class="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1 block">Arbetsuppgift / Kund / Anteckning</label>
+                            <div class="flex items-center gap-2 bg-zinc-950/40 border border-zinc-800/40 rounded-xl px-3.5 py-2 hover:border-zinc-700/40 transition-colors">
+                                <i class="ph ph-pencil-simple text-zinc-600 text-sm"></i>
+                                <input type="text" placeholder="Fyll i detaljer för passet..." value="${escapeHTML(entry.notes)}" onchange="updateEntry('${entry.id}', 'notes', this.value)" class="bg-transparent text-zinc-200 text-sm border-none p-0 focus:ring-0 w-full outline-none placeholder:text-zinc-700">
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            `).join('');
+        }
+    } catch(err) {
+        console.error("Krasch i render-funktionen:", err);
+        // Fallback så att klockan inte försvinner om något går snett
+        if(clockUI && !clockUI.innerHTML.trim()) {
+            clockUI.innerHTML = `<div class="text-center text-white font-bold p-10">Laddar... (Något gick snett, uppdatera sidan)</div>`;
+        }
     }
 }
 
