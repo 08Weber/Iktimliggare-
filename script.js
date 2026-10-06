@@ -426,7 +426,7 @@ function render() {
             historyList.innerHTML = entries.map(entry => {
                 if (!entry || !entry.id) return '';
                 return `
-                    <div class="card-entry bg-zinc-900/30 backdrop-blur-md border border-zinc-800/60 p-4 sm:p-5 rounded-2xl hover:border-zinc-700/60 transition-all relative group">
+                    <div class="card-entry bg-zinc-900/30 border border-zinc-800/60 p-4 sm:p-5 rounded-2xl hover:border-zinc-700/60 transition-all relative group">
                         
                         <button onclick="deleteEntry('${entry.id}')" class="absolute top-4 right-4 p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100 cursor-pointer" title="Radera pass">
                             <i class="ph ph-trash text-lg"></i>
