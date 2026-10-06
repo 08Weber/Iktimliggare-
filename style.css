@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.font-mono {
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* Custom styled inputs, zero out native styles on input tags where needed */
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.3;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 0.7;
+}
+
+/* Custom cards styling and shadow refinements */
+.stat-card {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(63,63,70, 0.8);
+}
+
+.card-entry {
+    backdrop-filter: blur(12px);
+}
+
+/* Soft notification toast */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+    z-index: 100;
+    pointer-events: none;
+}
+.toast-container.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+@keyframes slideIn {
+    from {
+        transform: scale(0.95);
+    }
+    to {
+        transform: scale(1);
+    }
+}
+
+.animate-slide-in {
+    animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}

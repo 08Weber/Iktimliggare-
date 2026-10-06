@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tidrapportering - Industriklättrarna</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        amber: {
+                            500: '#F59E0B',
+                            600: '#D97706',
+                        },
+                        zinc: {
+                            950: '#09090b',
+                            900: '#18181b',
+                            800: '#27272a',
+                            700: '#3f3f46',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Ikoner (Phosphor Icons) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-zinc-950 text-zinc-100 font-sans pb-24 selection:bg-amber-500/30 selection:text-amber-500">
+    
+    <!-- Top Navigation / Header -->
+    <header class="bg-zinc-900/80 backdrop-blur-md border-b border-zinc-800/80 sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="bg-gradient-to-tr from-amber-500 to-amber-600 p-2 rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+                    <!-- Snygg klättrar-ikon / logotyp -->
+                    <i class="ph-bold ph-sketch-logo text-zinc-950 text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-sm font-black tracking-[0.15em] text-amber-500">INDUSTRIKLÄTTRARNA</h1>
+                    <p class="text-xs font-semibold text-zinc-400">TIDRAPPORTERING</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="hidden sm:flex items-center gap-2 bg-zinc-800/40 border border-zinc-700/30 px-3 py-1.5 rounded-full text-xs font-medium text-zinc-400">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
+                    LOKALT SPARAD
+                </div>
+                <div class="flex items-center gap-2 text-xs font-bold text-zinc-300">
+                    <i class="ph ph-calendar-blank text-base text-amber-500"></i>
+                    <span id="headerDate" class="font-mono"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-4xl mx-auto p-4 sm:p-6 space-y-8 mt-2">
+        
+        <!-- Dashboard & Stats -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            
+            <!-- Månadstimmar -->
+            <div class="stat-card bg-zinc-900/60 border border-zinc-800/80 p-5 rounded-2xl relative overflow-hidden group">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl -z-10 group-hover:bg-amber-500/10 transition-all"></div>
+                <div class="text-zinc-400 mb-2 flex items-center gap-2 text-xs font-bold tracking-wider uppercase">
+                    <i class="ph-fill ph-timer text-amber-500 text-lg"></i>
+                    DENNA MÅNAD
+                </div>
+                <div class="flex items-baseline gap-1.5">
+                    <span id="statMonthHours" class="text-3xl font-black text-white tracking-tight font-mono">0.0</span>
+                    <span class="text-sm font-semibold text-zinc-400 uppercase">timmar</span>
+                </div>
+                <p class="text-zinc-500 text-[10px] font-semibold mt-1">Beräknat från stämplade pass</p>
+            </div>
+            
+            <!-- Antal Pass -->
+            <div class="stat-card bg-zinc-900/60 border border-zinc-800/80 p-5 rounded-2xl relative overflow-hidden group">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl -z-10 group-hover:bg-blue-500/10 transition-all"></div>
+                <div class="text-zinc-400 mb-2 flex items-center gap-2 text-xs font-bold tracking-wider uppercase">
+                    <i class="ph-fill ph-calendar-check text-blue-500 text-lg"></i>
+                    TOTALT ANTAL PASS
+                </div>
+                <div class="flex items-baseline gap-1.5">
+                    <span id="statTotalPass" class="text-3xl font-black text-white tracking-tight font-mono">0</span>
+                    <span class="text-sm font-semibold text-zinc-400 uppercase">styck</span>
+                </div>
+                <p class="text-zinc-500 text-[10px] font-semibold mt-1">Registrerade pass i listan</p>
+            </div>
+
+            <!-- Manuell registrering -->
+            <div class="stat-card bg-gradient-to-br from-zinc-900/40 to-zinc-900/80 border border-zinc-800/80 p-5 rounded-2xl relative flex flex-col justify-between group cursor-pointer hover:border-zinc-700/60 transition-all" onclick="toggleManualForm()">
+                <div class="absolute inset-0 bg-amber-500/[0.01] group-hover:bg-amber-500/[0.03] transition-all"></div>
+                <div>
+                    <div class="text-amber-500 mb-1 flex items-center gap-1.5 text-xs font-extrabold tracking-wider uppercase">
+                        <i class="ph-bold ph-plus text-sm"></i>
+                        MISSTAD IN-STÄMPLING?
+                    </div>
+                    <p class="text-zinc-400 text-xs font-medium">Lägg till ett pass manuellt i efterhand.</p>
+                </div>
+                <div class="text-zinc-500 group-hover:text-amber-500 text-xs font-bold flex items-center gap-1 mt-3 transition-colors">
+                    Registrera manuellt <i class="ph ph-arrow-right"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manuell Registrering Panel (Dold som default) -->
+        <div id="manualFormPanel" class="hidden bg-zinc-900/80 border border-zinc-800 p-6 rounded-3xl space-y-6 relative overflow-hidden">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i class="ph-bold ph-pencil-line text-amber-500 text-xl"></i>
+                    <h3 class="text-lg font-bold">Manuellt arbetspass</h3>
+                </div>
+                <button onclick="toggleManualForm()" class="text-zinc-400 hover:text-white p-1.5 hover:bg-zinc-800 rounded-lg transition-all">
+                    <i class="ph-bold ph-x text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 block">Datum</label>
+                    <input id="manualDate" type="date" class="w-full bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700/80 focus:border-amber-500 rounded-xl px-4 py-3 text-sm font-medium text-white transition-all outline-none">
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 block">Starttid</label>
+                    <input id="manualStart" type="time" class="w-full bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700/80 focus:border-amber-500 rounded-xl px-4 py-3 text-sm font-medium text-white transition-all outline-none">
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 block">Sluttid</label>
+                    <input id="manualEnd" type="time" class="w-full bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700/80 focus:border-amber-500 rounded-xl px-4 py-3 text-sm font-medium text-white transition-all outline-none">
+                </div>
+            </div>
+            
+            <div>
+                <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 block">Anteckning / Arbetsplats / Uppgift</label>
+                <input id="manualNotes" type="text" placeholder="T.ex. Fasadunderhåll, Rope Access på mast..." class="w-full bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700/80 focus:border-amber-500 rounded-xl px-4 py-3 text-sm font-medium text-white transition-all outline-none placeholder:text-zinc-600">
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="toggleManualForm()" class="bg-zinc-800 hover:bg-zinc-700/80 text-zinc-300 font-bold px-5 py-2.5 rounded-xl text-sm transition-all">Avbryt</button>
+                <button onclick="saveManualEntry()" class="bg-amber-500 hover:bg-amber-600 text-zinc-950 font-extrabold px-6 py-2.5 rounded-xl text-sm transition-all shadow-[0_4px_20px_rgba(245,158,11,0.2)] hover:shadow-[0_4px_20px_rgba(245,158,11,0.4)]">Lägg till pass</button>
+            </div>
+        </div>
+
+        <!-- Stämpelklocka -->
+        <div class="bg-zinc-900/40 border border-zinc-800/80 p-8 sm:p-12 rounded-[2.5rem] relative overflow-hidden shadow-2xl">
+            <!-- Glödande ambient-ljus bakom -->
+            <div id="ambientGlow" class="absolute inset-0 bg-amber-500/[0.02] blur-[150px] transition-all duration-700"></div>
+            
+            <div id="clockUI" class="flex flex-col items-center justify-center py-4 relative z-10">
+                <!-- Javascript fyller i UI här dynamiskt -->
+            </div>
+        </div>
+
+        <!-- Historik & Export -->
+        <div class="space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-1">
+                <div>
+                    <h2 class="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                        <i class="ph ph-list-dashes text-amber-500"></i>
+                        Arbetade pass & historik
+                    </h2>
+                    <p class="text-zinc-400 text-xs">Alla tider kan ändras direkt i fälten och sparas automatiskt.</p>
+                </div>
+                <button onclick="exportCSV()" class="flex items-center justify-center gap-2 text-sm font-extrabold bg-zinc-800/80 border border-zinc-700/65 hover:bg-zinc-800 text-zinc-100 hover:text-white px-5 py-3 rounded-xl transition-all shadow-sm active:scale-95">
+                    <i class="ph ph-download-simple text-lg"></i> Exportera till Chef (CSV)
+                </button>
+            </div>
+
+            <!-- Pass-listan -->
+            <div id="historyList" class="space-y-3">
+                <!-- Javascript fyller i de arbetade passen här -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Feedback Toasts -->
+    <div id="toast" class="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
