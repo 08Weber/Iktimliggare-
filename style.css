@@ -63,3 +63,19 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .animate-slide-in {
     animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
+/* Fix för iOS Safari där datum- och tidsfält blir centrerade */
+input[type="date"], 
+input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    text-align: left !important;
+}
+
+/* Tvingar den inre textbehållaren i iOS att lägga sig till vänster */
+input[type="date"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit {
+    display: flex;
+    justify-content: flex-start;
+    padding: 0;
+}
