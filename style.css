@@ -1,16 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
 
-body {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-}
+body { font-family: 'Plus Jakarta Sans', sans-serif; }
+.font-mono { font-family: 'JetBrains Mono', monospace !important; }
 
-.font-mono {
-    font-family: 'JetBrains Mono', monospace !important;
-}
-
-/* Fix för iOS Safari där datum- och tidsfält blir centrerade */
-input[type="date"], 
-input[type="time"] {
+input[type="date"], input[type="time"] {
     -webkit-appearance: none;
     appearance: none;
     text-align: left !important;
@@ -19,10 +12,8 @@ input[type="time"] {
     cursor: pointer;
 }
 
-/* Tvingar den inre textbehållaren i iOS att lägga sig till vänster */
 input[type="date"]::-webkit-datetime-edit,
-input[type="time"]::-webkit-datetime-edit,
-input[type="datetime-local"]::-webkit-datetime-edit {
+input[type="time"]::-webkit-datetime-edit {
     display: flex;
     justify-content: flex-start;
     padding: 0;
@@ -34,25 +25,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     transition: opacity 0.2s ease;
 }
 
-input[type="time"]::-webkit-calendar-picker-indicator:hover,
-input[type="date"]::-webkit-calendar-picker-indicator:hover {
-    opacity: 0.7;
-}
+.stat-card { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease; }
+.stat-card:hover { transform: translateY(-2px); border-color: rgba(63,63,70, 0.8); }
+.card-entry { backdrop-filter: blur(12px); }
 
-/* Custom cards styling and shadow refinements */
-.stat-card {
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
-}
-.stat-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(63,63,70, 0.8);
-}
-
-.card-entry {
-    backdrop-filter: blur(12px);
-}
-
-/* Soft notification toast */
 .toast-container {
     position: fixed;
     bottom: 24px;
@@ -72,7 +48,4 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     from { transform: scale(0.95); }
     to { transform: scale(1); }
 }
-
-.animate-slide-in {
-    animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
+.animate-slide-in { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }

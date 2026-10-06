@@ -5,41 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tidrapportering - Industriklättrarna</title>
     
-    <!-- Ikon för iOS Hemskärm & PWA support -->
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Timmar">
 
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        amber: {
-                            500: '#F59E0B',
-                            600: '#D97706',
-                        },
-                        zinc: {
-                            950: '#09090b',
-                            900: '#18181b',
-                            800: '#27272a',
-                            700: '#3f3f46',
-                        }
+                        amber: { 500: '#F59E0B', 600: '#D97706' },
+                        zinc: { 950: '#09090b', 900: '#18181b', 800: '#27272a', 700: '#3f3f46' }
                     }
                 }
             }
         }
     </script>
-    <!-- Ikoner (Phosphor Icons) -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-zinc-950 text-zinc-100 font-sans pb-24 selection:bg-amber-500/30 selection:text-amber-500">
 
-    <!-- Top Navigation / Header -->
     <header class="bg-zinc-900/80 backdrop-blur-md border-b border-zinc-800/80 sticky top-0 z-50">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
             <div class="flex items-center gap-3 sm:gap-4">
@@ -57,8 +45,7 @@
                     <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
                     LOKALT SPARAD
                 </div>
-                <!-- Inställningar / Timlön -->
-                <button onclick="openSettingsModal()" class="text-zinc-400 hover:text-amber-500 transition-colors p-2 bg-zinc-900 border border-zinc-800 rounded-full shadow-sm">
+                <button onclick="openSettingsModal()" class="text-zinc-400 hover:text-amber-500 transition-colors p-2 bg-zinc-900 border border-zinc-800 rounded-full shadow-sm cursor-pointer">
                     <i class="ph-fill ph-gear text-lg"></i>
                 </button>
             </div>
@@ -67,27 +54,20 @@
 
     <div class="max-w-4xl mx-auto p-4 sm:p-6 space-y-6 mt-2 relative z-10">
         
-        <!-- Dashboard & Stats (4 kolumner) -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             
-            <!-- Månadstimmar -->
             <div class="stat-card bg-zinc-900/60 border border-zinc-800/80 p-4 sm:p-5 rounded-2xl relative overflow-hidden group">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl -z-10 group-hover:bg-amber-500/10 transition-all"></div>
                 <div class="text-zinc-400 mb-1 flex items-center gap-1.5 text-[10px] sm:text-xs font-bold tracking-wider uppercase">
-                    <i class="ph-fill ph-timer text-amber-500 text-base"></i>
-                    PERIOD (H)
+                    <i class="ph-fill ph-timer text-amber-500 text-base"></i> PERIOD (H)
                 </div>
                 <div class="flex items-baseline gap-1">
                     <span id="statMonthHours" class="text-2xl sm:text-3xl font-black text-white tracking-tight font-mono">0.0</span>
                 </div>
             </div>
 
-            <!-- Estimerad Lön (Period) -->
             <div class="stat-card bg-zinc-900/60 border border-emerald-900/30 p-4 sm:p-5 rounded-2xl relative overflow-hidden group">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl -z-10 group-hover:bg-emerald-500/10 transition-all"></div>
                 <div id="periodEarnLabel" class="text-zinc-400 mb-1 flex items-center gap-1.5 text-[10px] sm:text-xs font-bold tracking-wider uppercase">
-                    <i class="ph-fill ph-coins text-emerald-500 text-base"></i>
-                    LÖN (PERIOD)
+                    <i class="ph-fill ph-coins text-emerald-500 text-base"></i> LÖN (PERIOD)
                 </div>
                 <div class="flex items-baseline gap-1">
                     <span id="statPeriodEarnings" class="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight font-mono">0</span>
@@ -95,24 +75,18 @@
                 </div>
             </div>
             
-            <!-- Antal Pass -->
             <div class="stat-card bg-zinc-900/60 border border-zinc-800/80 p-4 sm:p-5 rounded-2xl relative overflow-hidden group">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl -z-10 group-hover:bg-blue-500/10 transition-all"></div>
                 <div class="text-zinc-400 mb-1 flex items-center gap-1.5 text-[10px] sm:text-xs font-bold tracking-wider uppercase">
-                    <i class="ph-fill ph-calendar-check text-blue-500 text-base"></i>
-                    ANTAL PASS
+                    <i class="ph-fill ph-calendar-check text-blue-500 text-base"></i> ANTAL PASS
                 </div>
                 <div class="flex items-baseline gap-1">
                     <span id="statTotalPass" class="text-2xl sm:text-3xl font-black text-white tracking-tight font-mono">0</span>
                 </div>
             </div>
 
-            <!-- Total Lön All Time -->
             <div class="stat-card bg-zinc-900/60 border border-purple-900/30 p-4 sm:p-5 rounded-2xl relative overflow-hidden group">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl -z-10 group-hover:bg-purple-500/10 transition-all"></div>
                 <div id="totalEarnLabel" class="text-zinc-400 mb-1 flex items-center gap-1.5 text-[10px] sm:text-xs font-bold tracking-wider uppercase">
-                    <i class="ph-fill ph-vault text-purple-500 text-base"></i>
-                    ALL TIME (KR)
+                    <i class="ph-fill ph-vault text-purple-500 text-base"></i> ALL TIME (KR)
                 </div>
                 <div class="flex items-baseline gap-1">
                     <span id="statTotalEarnings" class="text-2xl sm:text-3xl font-black text-purple-400 tracking-tight font-mono">0</span>
@@ -122,9 +96,7 @@
 
         </div>
 
-        <!-- Manuell registrering Banner -->
         <div class="stat-card bg-gradient-to-br from-zinc-900/40 to-zinc-900/80 border border-zinc-800/80 p-4 sm:p-5 rounded-2xl relative flex flex-row items-center justify-between group cursor-pointer hover:border-zinc-700/60 transition-all" onclick="toggleManualForm()">
-            <div class="absolute inset-0 bg-amber-500/[0.01] group-hover:bg-amber-500/[0.03] transition-all"></div>
             <div>
                 <div class="text-amber-500 mb-0.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider uppercase">
                     <i class="ph-bold ph-plus text-sm"></i> MISSTAD IN-STÄMPLING?
@@ -136,14 +108,13 @@
             </div>
         </div>
 
-        <!-- Inställningar Panel -->
         <div id="settingsModalPanel" class="hidden bg-zinc-900/80 border border-zinc-800 p-6 rounded-3xl space-y-6 relative overflow-hidden shadow-2xl">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2">
                     <i class="ph-fill ph-gear text-amber-500 text-xl"></i>
                     <h3 class="text-lg font-bold">Inställningar</h3>
                 </div>
-                <button onclick="closeSettingsModal()" class="text-zinc-400 hover:text-white p-1.5 hover:bg-zinc-800 rounded-lg transition-all">
+                <button onclick="closeSettingsModal()" class="text-zinc-400 hover:text-white p-1.5 hover:bg-zinc-800 rounded-lg transition-all cursor-pointer">
                     <i class="ph-bold ph-x text-lg"></i>
                 </button>
             </div>
@@ -156,7 +127,6 @@
                 </div>
             </div>
 
-            <!-- Semesterersättning Toggle -->
             <div class="mt-4 bg-zinc-950/50 border border-zinc-800/80 p-4 rounded-xl">
                 <label class="flex items-center justify-between cursor-pointer">
                     <div>
@@ -171,19 +141,18 @@
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-                <button onclick="closeSettingsModal()" class="bg-zinc-800 hover:bg-zinc-700/80 text-zinc-300 font-bold px-5 py-2.5 rounded-xl text-sm transition-all">Avbryt</button>
-                <button onclick="saveSettings()" class="bg-amber-500 hover:bg-amber-600 text-zinc-950 font-extrabold px-6 py-2.5 rounded-xl text-sm transition-all shadow-[0_4px_20px_rgba(245,158,11,0.2)] hover:shadow-[0_4px_20px_rgba(245,158,11,0.4)]">Spara Inställningar</button>
+                <button onclick="closeSettingsModal()" class="bg-zinc-800 hover:bg-zinc-700/80 text-zinc-300 font-bold px-5 py-2.5 rounded-xl text-sm transition-all cursor-pointer">Avbryt</button>
+                <button onclick="saveSettings()" class="bg-amber-500 hover:bg-amber-600 text-zinc-950 font-extrabold px-6 py-2.5 rounded-xl text-sm transition-all cursor-pointer">Spara Inställningar</button>
             </div>
         </div>
 
-        <!-- Manuell Registrering Panel -->
         <div id="manualFormPanel" class="hidden bg-zinc-900/80 border border-zinc-800 p-6 rounded-3xl space-y-6 relative overflow-hidden shadow-2xl">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2">
                     <i class="ph-bold ph-pencil-line text-amber-500 text-xl"></i>
                     <h3 class="text-lg font-bold">Manuellt arbetspass</h3>
                 </div>
-                <button onclick="toggleManualForm()" class="text-zinc-400 hover:text-white p-1.5 hover:bg-zinc-800 rounded-lg transition-all">
+                <button onclick="toggleManualForm()" class="text-zinc-400 hover:text-white p-1.5 hover:bg-zinc-800 rounded-lg transition-all cursor-pointer">
                     <i class="ph-bold ph-x text-lg"></i>
                 </button>
             </div>
@@ -209,19 +178,18 @@
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-                <button onclick="toggleManualForm()" class="bg-zinc-800 hover:bg-zinc-700/80 text-zinc-300 font-bold px-5 py-2.5 rounded-xl text-sm transition-all">Avbryt</button>
-                <button onclick="saveManualEntry()" class="bg-amber-500 hover:bg-amber-600 text-zinc-950 font-extrabold px-6 py-2.5 rounded-xl text-sm transition-all shadow-[0_4px_20px_rgba(245,158,11,0.2)] hover:shadow-[0_4px_20px_rgba(245,158,11,0.4)]">Lägg till pass</button>
+                <button onclick="toggleManualForm()" class="bg-zinc-800 hover:bg-zinc-700/80 text-zinc-300 font-bold px-5 py-2.5 rounded-xl text-sm transition-all cursor-pointer">Avbryt</button>
+                <button onclick="saveManualEntry()" class="bg-amber-500 hover:bg-amber-600 text-zinc-950 font-extrabold px-6 py-2.5 rounded-xl text-sm transition-all cursor-pointer">Lägg till pass</button>
             </div>
         </div>
 
-        <!-- Export Modal Panel -->
-        <div id="exportModalPanel" class="hidden bg-zinc-900/80 border border-emerald-500/30 p-6 rounded-3xl space-y-6 relative overflow-hidden shadow-[0_0_40px_rgba(16,185,129,0.05)]">
+        <div id="exportModalPanel" class="hidden bg-zinc-900/80 border border-emerald-500/30 p-6 rounded-3xl space-y-6 relative overflow-hidden shadow-2xl">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2">
                     <i class="ph-bold ph-export text-emerald-500 text-xl"></i>
                     <h3 class="text-lg font-bold text-emerald-50">Exportera Löneperiod</h3>
                 </div>
-                <button onclick="closeExportModal()" class="text-zinc-400 hover:text-white p-1.5 hover:bg-zinc-800 rounded-lg transition-all">
+                <button onclick="closeExportModal()" class="text-zinc-400 hover:text-white p-1.5 hover:bg-zinc-800 rounded-lg transition-all cursor-pointer">
                     <i class="ph-bold ph-x text-lg"></i>
                 </button>
             </div>
@@ -230,53 +198,43 @@
                 <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Välj löneperiod (Från 26:e till 25:e)</label>
                 <div class="relative">
                     <select id="exportPeriodSelect" class="w-full bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700/80 focus:border-emerald-500 rounded-xl px-4 py-3 text-sm font-medium text-white transition-all outline-none appearance-none cursor-pointer">
-                        <!-- Fylls i dynamiskt av Javascript -->
                     </select>
                     <i class="ph-bold ph-caret-down absolute right-4 top-3.5 text-zinc-500 pointer-events-none"></i>
                 </div>
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-                <button onclick="closeExportModal()" class="bg-zinc-800 hover:bg-zinc-700/80 text-zinc-300 font-bold px-5 py-2.5 rounded-xl text-sm transition-all">Avbryt</button>
-                <button onclick="executeExport()" class="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-extrabold px-6 py-2.5 rounded-xl text-sm transition-all shadow-[0_4px_20px_rgba(16,185,129,0.2)]">Spara CSV-fil</button>
+                <button onclick="closeExportModal()" class="bg-zinc-800 hover:bg-zinc-700/80 text-zinc-300 font-bold px-5 py-2.5 rounded-xl text-sm transition-all cursor-pointer">Avbryt</button>
+                <button onclick="executeExport()" class="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-extrabold px-6 py-2.5 rounded-xl text-sm transition-all cursor-pointer">Spara CSV-fil</button>
             </div>
         </div>
 
-        <!-- Stämpelklocka -->
         <div class="bg-zinc-900/40 border border-zinc-800/80 p-8 sm:p-12 rounded-[2.5rem] relative overflow-hidden shadow-2xl">
             <div id="ambientGlow" class="absolute inset-0 bg-amber-500/[0.02] blur-[150px] transition-all duration-700"></div>
-            
             <div id="clockUI" class="flex flex-col items-center justify-center py-4 relative z-10">
-                <!-- Javascript fyller i UI här dynamiskt -->
             </div>
         </div>
 
-        <!-- Historik & Export -->
         <div class="space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-1">
                 <div>
                     <h2 class="text-xl font-black text-white tracking-tight flex items-center gap-2">
-                        <i class="ph ph-list-dashes text-amber-500"></i>
-                        Arbetade pass & historik
+                        <i class="ph ph-list-dashes text-amber-500"></i> Arbetade pass & historik
                     </h2>
                     <p class="text-zinc-400 text-xs">Alla tider kan ändras direkt i fälten och sparas automatiskt.</p>
                 </div>
-                <button onclick="openExportModal()" class="flex items-center justify-center gap-2 text-sm font-extrabold bg-zinc-800/80 border border-zinc-700/65 hover:bg-zinc-800 text-zinc-100 hover:text-white px-5 py-3 rounded-xl transition-all shadow-sm active:scale-95 hover:border-emerald-500/50 hover:text-emerald-400 group">
+                <button onclick="openExportModal()" class="flex items-center justify-center gap-2 text-sm font-extrabold bg-zinc-800/80 border border-zinc-700/65 hover:bg-zinc-800 text-zinc-100 hover:text-white px-5 py-3 rounded-xl transition-all shadow-sm active:scale-95 hover:border-emerald-500/50 hover:text-emerald-400 group cursor-pointer">
                     <i class="ph ph-download-simple text-lg group-hover:text-emerald-500"></i> Exportera till Chef
                 </button>
             </div>
 
-            <!-- Pass-listan -->
             <div id="historyList" class="space-y-3">
-                <!-- Javascript fyller i de arbetade passen här -->
             </div>
         </div>
 
     </div>
 
-    <!-- Feedback Toasts -->
     <div id="toast" class="toast-container"></div>
-
     <script src="script.js"></script>
 </body>
 </html>
