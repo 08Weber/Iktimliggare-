@@ -1,6 +1,7 @@
 // Ladda från localStorage om det finns, annars tomma värden
 let entries = JSON.parse(localStorage.getItem('work_hours')) || [];
 let activeEntry = JSON.parse(localStorage.getItem('active_session')) || null;
+let hourlyWage = parseFloat(localStorage.getItem('hourly_wage')) || 0;
 let timerInterval = null;
 
 // Elementreferenser
@@ -9,8 +10,11 @@ const historyList = document.getElementById('historyList');
 const headerDate = document.getElementById('headerDate');
 const statMonthHours = document.getElementById('statMonthHours');
 const statTotalPass = document.getElementById('statTotalPass');
+const statPeriodEarnings = document.getElementById('statPeriodEarnings');
+const statTotalEarnings = document.getElementById('statTotalEarnings');
 const manualFormPanel = document.getElementById('manualFormPanel');
 const exportModalPanel = document.getElementById('exportModalPanel');
+const settingsModalPanel = document.getElementById('settingsModalPanel');
 const ambientGlow = document.getElementById('ambientGlow');
 
 function init() {
@@ -23,6 +27,12 @@ function init() {
     if (activeEntry) {
         startTimer();
     }
+    
+    // Klätter-gubbe listeners
+    window.addEventListener('scroll', updateClimberPosition, { passive: true });
+    window.addEventListener('resize', updateClimberPosition, { passive: true });
+    // Kör direkt en gång
+    setTimeout(updateClimberPosition, 100);
 }
 
 function save() {
@@ -50,18 +60,15 @@ function showToast(text, type = "success") {
 
 // ---- LOGIK FÖR LÖNEPERIODER ----
 
-// Returnerar löneperioden i format "YYYY-MM" (Detta avser MÅNADEN då lönen betalas ut).
-// Löneperiod: 26:e föregående månad till 25:e nuvarande månad.
 function getPayPeriod(dateString) {
     const d = new Date(dateString);
     const year = d.getFullYear();
-    const month = d.getMonth(); // 0-11
+    const month = d.getMonth(); 
     const day = d.getDate();
     
     let payoutMonth = month;
     let payoutYear = year;
     
-    // Om datumet är > 25, tillhör det NÄSTA månads utbetalning
     if (day > 25) {
         payoutMonth++;
         if (payoutMonth > 11) {
@@ -73,6 +80,29 @@ function getPayPeriod(dateString) {
     return `${payoutYear}-${String(payoutMonth + 1).padStart(2, '0')}`;
 }
 
+// ---- SETTINGS / WAGE LOGIC ----
+window.openSettingsModal = function() {
+    document.getElementById('settingsWage').value = hourlyWage || '';
+    settingsModalPanel.classList.remove('hidden');
+    manualFormPanel.classList.add('hidden');
+    exportModalPanel.classList.add('hidden');
+    settingsModalPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+window.closeSettingsModal = function() {
+    settingsModalPanel.classList.add('hidden');
+};
+
+window.saveSettings = function() {
+    const wage = parseFloat(document.getElementById('settingsWage').value) || 0;
+    hourlyWage = wage;
+    localStorage.setItem('hourly_wage', wage);
+    closeSettingsModal();
+    updateStats();
+    showToast("Inställningar sparade!");
+};
+
+// ---- EXPORT LOGIC ----
 window.openExportModal = function() {
     if (entries.length === 0) {
         showToast("Det finns inga pass att exportera.", "warning");
@@ -104,8 +134,8 @@ window.openExportModal = function() {
         return `<option value="${p}">${monthNameCap} ${y} (26 ${prevMonthShort} - 25 ${currentMonthShort})</option>`;
     }).join('') + '<option value="ALL">Exportera alla pass i historiken</option>';
     
-    // Stäng manuellt formulär om det är öppet
     manualFormPanel.classList.add('hidden');
+    settingsModalPanel.classList.add('hidden');
     exportModalPanel.classList.remove('hidden');
     exportModalPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
@@ -141,16 +171,13 @@ window.executeExport = function() {
             totalHours += hours;
         }
         const safeNotes = e.notes ? e.notes.replace(/"/g, '""') : '';
-        // Konvertera punkt till kommatecken i decimaler för svensk Excel
         const hoursStr = hours.toFixed(2).replace('.', ',');
         return [e.date, e.startTime, e.endTime || '', hoursStr, `"${safeNotes}"`];
     });
 
-    // Lägg till en rad längst ner som summerar totala antalet timmar
     const totalHoursStr = totalHours.toFixed(2).replace('.', ',');
     rows.push(['', '', 'TOTAL TIMMAR:', totalHoursStr, '']);
 
-    // Använd semikolon (;) som separator eftersom Excel på svenska ofta förväntar sig det när decimaler använder kommatecken
     const csvContent = [headers, ...rows].map(e => e.join(';')).join('\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -172,6 +199,7 @@ window.executeExport = function() {
 window.toggleManualForm = function() {
     manualFormPanel.classList.toggle('hidden');
     exportModalPanel.classList.add('hidden');
+    settingsModalPanel.classList.add('hidden');
     if (!manualFormPanel.classList.contains('hidden')) {
         manualFormPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -296,6 +324,23 @@ window.updateEntry = function(id, field, value) {
     updateStats();
 };
 
+// ---- KLÄTTRARGUBBEN SCROLL ----
+window.updateClimberPosition = function() {
+    const climber = document.getElementById('climber-figure');
+    if (!climber) return;
+    
+    const scrollY = window.scrollY || window.pageYOffset;
+    const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    
+    let scrollPercent = scrollY / maxScroll;
+    scrollPercent = Math.max(0, Math.min(1, scrollPercent));
+    
+    // Fönstrets höjd minus gubbens höjd minus padding för botten
+    const maxMove = window.innerHeight - climber.offsetHeight - 100; 
+    
+    climber.style.transform = `translate(-50%, ${scrollPercent * maxMove}px)`;
+};
+
 // ---- UPPDATERA GRÄNSSNITT (UI) ----
 
 function updateStats() {
@@ -304,16 +349,28 @@ function updateStats() {
     const today = new Date();
     const currentPayPeriod = getPayPeriod(today.toISOString().split('T')[0]);
     let periodHours = 0;
+    let totalHours = 0;
     
     entries.forEach(e => {
-        if (e.endTime && getPayPeriod(e.date) === currentPayPeriod) {
+        if (e.endTime) {
             const start = new Date(`2000-01-01T${e.startTime}`);
             const end = new Date(`2000-01-01T${e.endTime}`);
-            periodHours += (end - start) / (1000 * 60 * 60);
+            const hrs = (end - start) / (1000 * 60 * 60);
+            totalHours += hrs;
+            if (getPayPeriod(e.date) === currentPayPeriod) {
+                periodHours += hrs;
+            }
         }
     });
     
     statMonthHours.innerText = periodHours.toFixed(1);
+    
+    // Räkna ut estimerad lön
+    const periodEarn = Math.round(periodHours * hourlyWage);
+    const totalEarn = Math.round(totalHours * hourlyWage);
+    
+    statPeriodEarnings.innerText = periodEarn.toLocaleString('sv-SE');
+    statTotalEarnings.innerText = totalEarn.toLocaleString('sv-SE');
 }
 
 function render() {
@@ -431,6 +488,8 @@ function render() {
             </div>
         `).join('');
     }
+    
+    setTimeout(updateClimberPosition, 50);
 }
 
 init();
