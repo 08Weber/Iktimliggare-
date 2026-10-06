@@ -3,6 +3,22 @@
 body { font-family: 'Plus Jakarta Sans', sans-serif; }
 .font-mono { font-family: 'JetBrains Mono', monospace !important; }
 
+/* CSS variabler för Aurora-effekten */
+:root {
+  --black: #000000;
+  --white: #ffffff;
+  --transparent: transparent;
+  --blue-500: #3b82f6;
+  --indigo-300: #a5b4fc;
+  --blue-300: #93c5fd;
+  --violet-200: #ddd6fe;
+  --blue-400: #60a5fa;
+}
+
+.aurora-effect::after {
+  background-image: repeating-linear-gradient(100deg,var(--black)_0%,var(--black)_7%,var(--transparent)_10%,var(--transparent)_12%,var(--black)_16%), repeating-linear-gradient(100deg,var(--blue-500)_10%,var(--indigo-300)_15%,var(--blue-300)_20%,var(--violet-200)_25%,var(--blue-400)_30%);
+}
+
 input[type="date"], input[type="time"] {
     -webkit-appearance: none;
     appearance: none;
