@@ -10,14 +10,13 @@ const headerDate = document.getElementById('headerDate');
 const statMonthHours = document.getElementById('statMonthHours');
 const statTotalPass = document.getElementById('statTotalPass');
 const manualFormPanel = document.getElementById('manualFormPanel');
+const exportModalPanel = document.getElementById('exportModalPanel');
 const ambientGlow = document.getElementById('ambientGlow');
 
 function init() {
-    // Sätt dagens datum i headern
     const today = new Date();
     headerDate.innerText = today.toISOString().split('T')[0];
     
-    // Sätt default-värden på manuella fält
     document.getElementById('manualDate').value = today.toISOString().split('T')[0];
     
     render();
@@ -35,7 +34,6 @@ function save() {
     }
 }
 
-// Visa en snabb, snygg toast-notifikation
 function showToast(text, type = "success") {
     const toast = document.getElementById('toast');
     toast.innerHTML = `
@@ -50,10 +48,130 @@ function showToast(text, type = "success") {
     }, 3000);
 }
 
-// Toggle för manuellt formulär
+// ---- LOGIK FÖR LÖNEPERIODER ----
+
+// Returnerar löneperioden i format "YYYY-MM" (Detta avser MÅNADEN då lönen betalas ut).
+// Löneperiod: 26:e föregående månad till 25:e nuvarande månad.
+function getPayPeriod(dateString) {
+    const d = new Date(dateString);
+    const year = d.getFullYear();
+    const month = d.getMonth(); // 0-11
+    const day = d.getDate();
+    
+    let payoutMonth = month;
+    let payoutYear = year;
+    
+    // Om datumet är > 25, tillhör det NÄSTA månads utbetalning
+    if (day > 25) {
+        payoutMonth++;
+        if (payoutMonth > 11) {
+            payoutMonth = 0;
+            payoutYear++;
+        }
+    }
+    
+    return `${payoutYear}-${String(payoutMonth + 1).padStart(2, '0')}`;
+}
+
+window.openExportModal = function() {
+    if (entries.length === 0) {
+        showToast("Det finns inga pass att exportera.", "warning");
+        return;
+    }
+    
+    const periods = new Set();
+    entries.forEach(e => {
+        periods.add(getPayPeriod(e.date));
+    });
+    
+    const sortedPeriods = Array.from(periods).sort((a, b) => b.localeCompare(a));
+    const select = document.getElementById('exportPeriodSelect');
+    
+    const monthsSv = ["januari", "februari", "mars", "april", "maj", "juni", "juli", "augusti", "september", "oktober", "november", "december"];
+    const monthsShortSv = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+    
+    select.innerHTML = sortedPeriods.map(p => {
+        const [y, m] = p.split('-');
+        const currentMonthIdx = parseInt(m) - 1;
+        const prevMonthIdx = currentMonthIdx === 0 ? 11 : currentMonthIdx - 1;
+        
+        const monthName = monthsSv[currentMonthIdx];
+        const monthNameCap = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+        
+        const currentMonthShort = monthsShortSv[currentMonthIdx];
+        const prevMonthShort = monthsShortSv[prevMonthIdx];
+        
+        return `<option value="${p}">${monthNameCap} ${y} (26 ${prevMonthShort} - 25 ${currentMonthShort})</option>`;
+    }).join('') + '<option value="ALL">Exportera alla pass i historiken</option>';
+    
+    // Stäng manuellt formulär om det är öppet
+    manualFormPanel.classList.add('hidden');
+    exportModalPanel.classList.remove('hidden');
+    exportModalPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+window.closeExportModal = function() {
+    exportModalPanel.classList.add('hidden');
+};
+
+window.executeExport = function() {
+    const period = document.getElementById('exportPeriodSelect').value;
+    let filteredEntries = entries;
+    let fileNameSuffix = "Alla_pass";
+    
+    if (period !== "ALL") {
+        filteredEntries = entries.filter(e => getPayPeriod(e.date) === period);
+        fileNameSuffix = `Löneperiod_${period}`;
+    }
+    
+    if (filteredEntries.length === 0) {
+        showToast("Inga pass i vald period.", "warning");
+        return;
+    }
+    
+    const headers = ['Datum', 'Starttid', 'Sluttid', 'Timmar', 'Anteckningar'];
+    let totalHours = 0;
+    
+    const rows = filteredEntries.map(e => {
+        let hours = 0;
+        if (e.endTime) {
+            const start = new Date(`2000-01-01T${e.startTime}`);
+            const end = new Date(`2000-01-01T${e.endTime}`);
+            hours = (end - start) / (1000 * 60 * 60);
+            totalHours += hours;
+        }
+        const safeNotes = e.notes ? e.notes.replace(/"/g, '""') : '';
+        // Konvertera punkt till kommatecken i decimaler för svensk Excel
+        const hoursStr = hours.toFixed(2).replace('.', ',');
+        return [e.date, e.startTime, e.endTime || '', hoursStr, `"${safeNotes}"`];
+    });
+
+    // Lägg till en rad längst ner som summerar totala antalet timmar
+    const totalHoursStr = totalHours.toFixed(2).replace('.', ',');
+    rows.push(['', '', 'TOTAL TIMMAR:', totalHoursStr, '']);
+
+    // Använd semikolon (;) som separator eftersom Excel på svenska ofta förväntar sig det när decimaler använder kommatecken
+    const csvContent = [headers, ...rows].map(e => e.join(';')).join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Tidrapport_Industriklattrarna_${fileNameSuffix}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    closeExportModal();
+    showToast("Tidrapport exporterad!");
+};
+
+
+// ---- MANUAL FORM LOGIC ----
+
 window.toggleManualForm = function() {
     manualFormPanel.classList.toggle('hidden');
-    // Scrolla mjukt till formuläret om det visas
+    exportModalPanel.classList.add('hidden');
     if (!manualFormPanel.classList.contains('hidden')) {
         manualFormPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -82,7 +200,6 @@ window.saveManualEntry = function() {
     save();
     render();
     
-    // Nollställ och stäng fönstret
     document.getElementById('manualStart').value = '';
     document.getElementById('manualEnd').value = '';
     document.getElementById('manualNotes').value = '';
@@ -113,13 +230,12 @@ window.clockOut = function() {
     const now = new Date();
     activeEntry.endTime = now.toTimeString().slice(0, 5);
     
-    // Fråga efter en snabb anteckning innan passet läggs till
     const notePrompt = prompt("Lägg till en kort anteckning för passet (valfritt):");
     if (notePrompt !== null) {
         activeEntry.notes = notePrompt;
     }
     
-    entries.unshift(activeEntry); // Lägg nyaste passet högst upp
+    entries.unshift(activeEntry);
     activeEntry = null;
     stopTimer();
     save();
@@ -163,7 +279,7 @@ function stopTimer() {
     }
 }
 
-// ---- LOGIK FÖR REDIGERING & EXPORT ----
+// ---- LOGIK FÖR REDIGERING ----
 
 window.deleteEntry = function(id) {
     if (confirm('Är du säker på att du vill radera detta pass?')) {
@@ -177,38 +293,7 @@ window.deleteEntry = function(id) {
 window.updateEntry = function(id, field, value) {
     entries = entries.map(e => e.id === id ? { ...e, [field]: value } : e);
     save();
-    updateStats(); // Uppdatera bara stats i realtid, hela listan behöver inte laddas om
-};
-
-window.exportCSV = function() {
-    if (entries.length === 0) {
-        showToast('Det finns inga pass att exportera.', 'warning');
-        return;
-    }
-    
-    const headers = ['Datum', 'Starttid', 'Sluttid', 'Timmar', 'Anteckningar'];
-    const rows = entries.map(e => {
-        let hours = '0';
-        if (e.endTime) {
-            const start = new Date(`2000-01-01T${e.startTime}`);
-            const end = new Date(`2000-01-01T${e.endTime}`);
-            hours = ((end - start) / (1000 * 60 * 60)).toFixed(2);
-        }
-        const safeNotes = e.notes ? e.notes.replace(/"/g, '""') : '';
-        return [e.date, e.startTime, e.endTime || '', hours, `"${safeNotes}"`];
-    });
-
-    const csvContent = [headers, ...rows].map(e => e.join(',')).join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Tidrapport_Industriklattrarna_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast("Tidrapport exporterad till CSV!");
+    updateStats();
 };
 
 // ---- UPPDATERA GRÄNSSNITT (UI) ----
@@ -216,22 +301,19 @@ window.exportCSV = function() {
 function updateStats() {
     statTotalPass.innerText = entries.length;
     
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    let monthHours = 0;
+    const today = new Date();
+    const currentPayPeriod = getPayPeriod(today.toISOString().split('T')[0]);
+    let periodHours = 0;
     
     entries.forEach(e => {
-        if (e.endTime) {
-            const eDate = new Date(e.date);
-            if (eDate.getMonth() === currentMonth && eDate.getFullYear() === currentYear) {
-                const start = new Date(`2000-01-01T${e.startTime}`);
-                const end = new Date(`2000-01-01T${e.endTime}`);
-                monthHours += (end - start) / (1000 * 60 * 60);
-            }
+        if (e.endTime && getPayPeriod(e.date) === currentPayPeriod) {
+            const start = new Date(`2000-01-01T${e.startTime}`);
+            const end = new Date(`2000-01-01T${e.endTime}`);
+            periodHours += (end - start) / (1000 * 60 * 60);
         }
     });
     
-    statMonthHours.innerText = monthHours.toFixed(1);
+    statMonthHours.innerText = periodHours.toFixed(1);
 }
 
 function render() {
@@ -306,14 +388,12 @@ function render() {
         historyList.innerHTML = entries.map(entry => `
             <div class="card-entry bg-zinc-900/30 border border-zinc-800/60 p-4 sm:p-5 rounded-2xl hover:border-zinc-700/60 transition-all relative group">
                 
-                <!-- Radera-knapp -->
                 <button onclick="deleteEntry('${entry.id}')" class="absolute top-4 right-4 p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100" title="Radera pass">
                     <i class="ph ph-trash text-lg"></i>
                 </button>
 
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                     
-                    <!-- Datum -->
                     <div class="md:col-span-3">
                         <label class="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1 block">Datum</label>
                         <div class="flex items-center gap-2 bg-zinc-950/40 border border-zinc-800/40 rounded-xl px-3.5 py-2 hover:border-zinc-700/40 transition-colors">
@@ -322,7 +402,6 @@ function render() {
                         </div>
                     </div>
                     
-                    <!-- Tider -->
                     <div class="md:col-span-4 flex items-center gap-4">
                         <div class="flex-1">
                             <label class="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1 block">Start</label>
@@ -341,7 +420,6 @@ function render() {
                         </div>
                     </div>
 
-                    <!-- Anteckningar -->
                     <div class="md:col-span-5 pt-1 md:pt-0">
                         <label class="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1 block">Arbetsuppgift / Kund / Anteckning</label>
                         <div class="flex items-center gap-2 bg-zinc-950/40 border border-zinc-800/40 rounded-xl px-3.5 py-2 hover:border-zinc-700/40 transition-colors">
@@ -355,5 +433,4 @@ function render() {
     }
 }
 
-// Starta appen
 init();

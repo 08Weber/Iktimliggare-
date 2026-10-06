@@ -1,17 +1,16 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-    <!-- Ikon för iOS Hemskärm -->
-    <link rel="apple-touch-icon" href="IMG_4743.jpeg">
-
-<!-- Gör att webbsidan beter sig som en riktig fristående app på iOS -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tidrapportering - Industriklättrarna</title>
+    
+    <!-- Ikon för iOS Hemskärm & PWA support -->
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Timmar">
 
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tidrapportering - Industriklättrarna</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -45,7 +44,6 @@
         <div class="max-w-4xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
             <div class="flex items-center gap-4">
                 <div class="bg-gradient-to-tr from-amber-500 to-amber-600 p-2 rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.3)]">
-                    <!-- Snygg klättrar-ikon / logotyp -->
                     <i class="ph-bold ph-sketch-logo text-zinc-950 text-2xl"></i>
                 </div>
                 <div>
@@ -77,13 +75,13 @@
                 <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl -z-10 group-hover:bg-amber-500/10 transition-all"></div>
                 <div class="text-zinc-400 mb-2 flex items-center gap-2 text-xs font-bold tracking-wider uppercase">
                     <i class="ph-fill ph-timer text-amber-500 text-lg"></i>
-                    DENNA MÅNAD
+                    AKTUELL LÖNEPERIOD
                 </div>
                 <div class="flex items-baseline gap-1.5">
                     <span id="statMonthHours" class="text-3xl font-black text-white tracking-tight font-mono">0.0</span>
                     <span class="text-sm font-semibold text-zinc-400 uppercase">timmar</span>
                 </div>
-                <p class="text-zinc-500 text-[10px] font-semibold mt-1">Beräknat från stämplade pass</p>
+                <p class="text-zinc-500 text-[10px] font-semibold mt-1">Stämplat sedan den 26:e</p>
             </div>
             
             <!-- Antal Pass -->
@@ -116,7 +114,7 @@
             </div>
         </div>
 
-        <!-- Manuell Registrering Panel (Dold som default) -->
+        <!-- Manuell Registrering Panel -->
         <div id="manualFormPanel" class="hidden bg-zinc-900/80 border border-zinc-800 p-6 rounded-3xl space-y-6 relative overflow-hidden">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2">
@@ -154,9 +152,36 @@
             </div>
         </div>
 
+        <!-- Export Modal Panel -->
+        <div id="exportModalPanel" class="hidden bg-zinc-900/80 border border-emerald-500/30 p-6 rounded-3xl space-y-6 relative overflow-hidden shadow-[0_0_40px_rgba(16,185,129,0.05)]">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i class="ph-bold ph-export text-emerald-500 text-xl"></i>
+                    <h3 class="text-lg font-bold text-emerald-50">Exportera Löneperiod</h3>
+                </div>
+                <button onclick="closeExportModal()" class="text-zinc-400 hover:text-white p-1.5 hover:bg-zinc-800 rounded-lg transition-all">
+                    <i class="ph-bold ph-x text-lg"></i>
+                </button>
+            </div>
+            
+            <div>
+                <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Välj löneperiod (Från 26:e till 25:e)</label>
+                <div class="relative">
+                    <select id="exportPeriodSelect" class="w-full bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700/80 focus:border-emerald-500 rounded-xl px-4 py-3 text-sm font-medium text-white transition-all outline-none appearance-none cursor-pointer">
+                        <!-- Fylls i dynamiskt av Javascript -->
+                    </select>
+                    <i class="ph-bold ph-caret-down absolute right-4 top-3.5 text-zinc-500 pointer-events-none"></i>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="closeExportModal()" class="bg-zinc-800 hover:bg-zinc-700/80 text-zinc-300 font-bold px-5 py-2.5 rounded-xl text-sm transition-all">Avbryt</button>
+                <button onclick="executeExport()" class="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-extrabold px-6 py-2.5 rounded-xl text-sm transition-all shadow-[0_4px_20px_rgba(16,185,129,0.2)]">Spara CSV-fil</button>
+            </div>
+        </div>
+
         <!-- Stämpelklocka -->
         <div class="bg-zinc-900/40 border border-zinc-800/80 p-8 sm:p-12 rounded-[2.5rem] relative overflow-hidden shadow-2xl">
-            <!-- Glödande ambient-ljus bakom -->
             <div id="ambientGlow" class="absolute inset-0 bg-amber-500/[0.02] blur-[150px] transition-all duration-700"></div>
             
             <div id="clockUI" class="flex flex-col items-center justify-center py-4 relative z-10">
@@ -174,8 +199,8 @@
                     </h2>
                     <p class="text-zinc-400 text-xs">Alla tider kan ändras direkt i fälten och sparas automatiskt.</p>
                 </div>
-                <button onclick="exportCSV()" class="flex items-center justify-center gap-2 text-sm font-extrabold bg-zinc-800/80 border border-zinc-700/65 hover:bg-zinc-800 text-zinc-100 hover:text-white px-5 py-3 rounded-xl transition-all shadow-sm active:scale-95">
-                    <i class="ph ph-download-simple text-lg"></i> Exportera till Chef (CSV)
+                <button onclick="openExportModal()" class="flex items-center justify-center gap-2 text-sm font-extrabold bg-zinc-800/80 border border-zinc-700/65 hover:bg-zinc-800 text-zinc-100 hover:text-white px-5 py-3 rounded-xl transition-all shadow-sm active:scale-95 hover:border-emerald-500/50 hover:text-emerald-400 group">
+                    <i class="ph ph-download-simple text-lg group-hover:text-emerald-500"></i> Exportera till Chef
                 </button>
             </div>
 

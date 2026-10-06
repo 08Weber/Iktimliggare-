@@ -8,12 +8,29 @@ body {
     font-family: 'JetBrains Mono', monospace !important;
 }
 
-/* Custom styled inputs, zero out native styles on input tags where needed */
+/* Fix för iOS Safari där datum- och tidsfält blir centrerade */
+input[type="date"], 
+input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    text-align: left !important;
+    filter: invert(1);
+    opacity: 0.8;
+    cursor: pointer;
+}
+
+/* Tvingar den inre textbehållaren i iOS att lägga sig till vänster */
+input[type="date"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit {
+    display: flex;
+    justify-content: flex-start;
+    padding: 0;
+}
+
 input[type="time"]::-webkit-calendar-picker-indicator,
 input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
     opacity: 0.3;
-    cursor: pointer;
     transition: opacity 0.2s ease;
 }
 
@@ -52,30 +69,10 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 @keyframes slideIn {
-    from {
-        transform: scale(0.95);
-    }
-    to {
-        transform: scale(1);
-    }
+    from { transform: scale(0.95); }
+    to { transform: scale(1); }
 }
 
 .animate-slide-in {
     animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-/* Fix för iOS Safari där datum- och tidsfält blir centrerade */
-input[type="date"], 
-input[type="time"] {
-    -webkit-appearance: none;
-    appearance: none;
-    text-align: left !important;
-}
-
-/* Tvingar den inre textbehållaren i iOS att lägga sig till vänster */
-input[type="date"]::-webkit-datetime-edit,
-input[type="time"]::-webkit-datetime-edit,
-input[type="datetime-local"]::-webkit-datetime-edit {
-    display: flex;
-    justify-content: flex-start;
-    padding: 0;
 }
