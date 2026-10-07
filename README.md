@@ -16,8 +16,8 @@ All data sparas lokalt i webbläsaren (`localStorage`), så den finns bara på d
 
 Appen har ett 3D-lager byggt med [three.js](https://threejs.org) och [GSAP](https://gsap.com), båda från CDN:
 
-- **Startskärm** en gång per dag: kameran firar sig ned längs repet på en telemast och en karbinhake klickar fast. Håll inne loggan för att se den igen.
-- **Bakgrund:** masten i nattdis med flyghinderljus och stadsljus. Den skiftar från amber till grönt när ett pass pågår, och scrollar du firar sig kameran ned längs masten.
+- **Startskärm** en gång per dag: en klättrare står vid kanten av en oljerigg, lyfter linan till selen och klickar fast karbinen, backar ut över kanten och hänger i linan. Sedan zoomar kameran ut och namnet visas. Håll inne loggan för att se den igen.
+- **Bakgrund:** en jack-up-rigg till havs om natten med brinnande fackla, fler riggar i fjärran och klättrare som hänger i rep runt riggen. Den skiftar från amber till grönt när ett pass pågår, och scrollar du sänks kameran längs riggen.
 - **Klockan:** klättraren från app-ikonen firar sig ned längs en fasad, en våning per timme.
 - **Periodens skyline:** ett torn per dag i löneperioden. Höjden är timmarna, dra för att snurra och tryck för detaljer.
 
@@ -31,11 +31,13 @@ Appen har ett 3D-lager byggt med [three.js](https://threejs.org) och [GSAP](http
 | `style.css` | Typsnitt, animationer, bottenpaneler och aurora-bakgrunden (när 3D är av) |
 | `script.js` | All logik: stämpling, historik, statistik och export |
 | `fx/main.js` | Startar 3D-lagret och lyssnar på ändringar från `script.js` |
-| `fx/background.js` | Bakgrundsvärlden med masten |
+| `fx/background.js` | Bakgrundsvärlden: riggen, havet, klättrarna och kameran |
+| `fx/rig.js` | Oljeriggen, facklan och havet |
+| `fx/figure.js` | Den ledade klättraren i introt och de som hänger runt riggen |
 | `fx/hero.js` | Klättraren i klockkortet |
 | `fx/skyline.js` | 3D-diagrammet över löneperioden |
 | `fx/intro.js` | Startskärmen |
-| `fx/models.js`, `fx/common.js` | Mast, rep, karbinhake, klättrare och delade hjälpare |
+| `fx/models.js`, `fx/common.js` | Fackverk, rep, karbinhake, klättraren i klockan och delade hjälpare |
 | `assets/climber.svg` | Klättraren från ikonen som vektor (används i loggan och i 3D) |
 | `apple-touch-icon.jpg` | Ikon när appen läggs till på hemskärmen i iOS |
 

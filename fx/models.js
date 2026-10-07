@@ -1,4 +1,4 @@
-// Modellerna byggs i kod (inga 3D-filer att ladda): fackverksmast, rep, karbinhake och klättraren.
+// Modellerna byggs i kod (inga 3D-filer att ladda): fackverk, rep, karbinhake och klättraren.
 import * as THREE from 'three';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { ropeTexture } from './common.js';
@@ -24,60 +24,6 @@ export function buildMembers(members, material, radialSegments = 6) {
         mesh.setMatrixAt(i, matrix.compose(pos, q, scale));
     });
     return mesh;
-}
-
-// Telemast i fackverk med antennpaneler, parabol och en bom i toppen som repen hänger i.
-export function buildMast(steel, panels, { height = 72, base = 3.4, top = 1.1, segments = 18 } = {}) {
-    const half = y => base + (top - base) * (y / height);
-    // Hörnen i ordning runt masten: (-,-) (+,-) (+,+) (-,+)
-    const corner = (y, k) => {
-        const h = half(y);
-        return V(k === 1 || k === 2 ? h : -h, y, k >= 2 ? h : -h);
-    };
-
-    const members = [];
-    const seg = height / segments;
-    for (let i = 0; i < segments; i++) {
-        const y0 = i * seg, y1 = y0 + seg;
-        for (let k = 0; k < 4; k++) {
-            const n = (k + 1) % 4;
-            members.push([corner(y0, k), corner(y1, k), 0.12]);  // ben
-            members.push([corner(y0, k), corner(y1, n), 0.045]); // kryss
-            members.push([corner(y0, n), corner(y1, k), 0.045]);
-            members.push([corner(y1, k), corner(y1, n), 0.055]); // ring
-        }
-    }
-    members.push([V(0, height, 0), V(0, height + 8, 0), 0.1]); // antennspira
-
-    const boomTip = V(4.9, height - 0.6, 0.4);
-    members.push([V(top, height - 0.5, 0.4), boomTip, 0.08]);
-    members.push([V(top, height - 3.4, 0.4), V(3.9, height - 0.6, 0.4), 0.06]);
-
-    const group = new THREE.Group();
-    group.add(buildMembers(members, steel));
-
-    const panelGeo = new THREE.BoxGeometry(0.55, 2.8, 0.22);
-    const yPanels = height - 5;
-    const r = half(yPanels) + 0.45;
-    for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-        const panel = new THREE.Mesh(panelGeo, panels);
-        panel.position.set(Math.cos(a) * r, yPanels, Math.sin(a) * r);
-        panel.rotation.y = Math.PI / 2 - a;
-        group.add(panel);
-    }
-
-    const dish = new THREE.Mesh(new THREE.SphereGeometry(1.1, 20, 8, 0, Math.PI * 2, 0, 0.6), panels);
-    dish.position.set(-half(height - 12) - 0.7, height - 12, 0.5);
-    dish.rotation.z = -Math.PI / 2;
-    group.add(dish);
-
-    const beacons = [
-        V(0, height + 8.25, 0),
-        corner(height * 0.5, 0).add(V(-0.25, 0, -0.25)),
-        corner(height * 0.5, 2).add(V(0.25, 0, 0.25)),
-    ];
-    return { group, boomTip, beacons, height };
 }
 
 // Rep som hänger nedåt från (0,0,0). Lite ojämnt så att det inte ser datorritat ut.
