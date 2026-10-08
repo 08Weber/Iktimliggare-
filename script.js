@@ -372,8 +372,9 @@ function executeExport() {
 }
 
 // Webbläsare kan inte bifoga filer via mailto:, så på enheter med delningsmeny
-// (mobil) delas filen direkt till mailappen. Annars laddas filen ner och ett
-// färdigadresserat mail öppnas där filen dras in.
+// (mobil) delas filen och texten till vald mailapp. Delningsmenyn kan inte fylla
+// i mottagaren, så adressen kopieras för att klistras in i Till-fältet. Annars
+// laddas filen ner och ett färdigadresserat mail öppnas där filen dras in.
 async function executeMail() {
     const report = buildExportReport();
     if (!report) return;
@@ -386,7 +387,7 @@ async function executeMail() {
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try { await navigator.clipboard.writeText(BOSS_EMAIL); } catch (e) { /* inte kritiskt */ }
         try {
-            await navigator.share({ files: [file], title: subject, text: `Till: ${BOSS_EMAIL}\n\n${body}` });
+            await navigator.share({ files: [file], title: subject, text: body });
             closeExportModal();
             showToast("Tidrapport delad!");
             return;
