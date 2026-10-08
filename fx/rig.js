@@ -270,10 +270,6 @@ export function buildRig(env, dot, { withLights = true } = {}) {
         }
     }
 
-    // ---------- Förankringsstolpen för introts lina ----------
-    const introAnchor = V(INTRO_X - 0.3, DECK_Y + 1.35, HULL_FRONT - 1.9);
-    members.push([V(introAnchor.x, DECK_Y, introAnchor.z), V(introAnchor.x, DECK_Y + 1.5, introAnchor.z), 0.08]);
-    batch.add(new THREE.TorusGeometry(0.07, 0.02, 6, 12), '#d4d4d8', introAnchor, new THREE.Euler(0, Math.PI / 2, 0));
 
     const steel = new THREE.MeshStandardMaterial({ color: '#8b9099', metalness: 0.55, roughness: 0.45 });
     group.add(buildMembers(members, steel));
@@ -318,20 +314,20 @@ export function buildRig(env, dot, { withLights = true } = {}) {
     const flare = createFlare(flareTip, dot, withLights);
     group.add(flare.group);
 
-    // Platser där klättrare hänger runt riggen: ankare, hur långt ned och vilket håll de tittar
+    // Platser där klättrare hänger runt riggen: punkt på ytan i bäckenhöjd, ytans normal (utåt) och
+    // hur långt upp repen går till ankaret. På benen står fötterna mot ett av benens rör (radie 0,3).
+    const chord = (cx, cz, y, nx, nz, drop) => ({ wall: V(cx + nx * 0.3, y, cz + nz * 0.3), normal: V(nx, 0, nz), drop });
     const hangSpots = [
-        { anchor: V(-22, 66, 15), drop: 5, yaw: Math.PI / 2 },
-        { anchor: V(21.1, 54, 15), drop: 4, yaw: -Math.PI / 2 },
-        { anchor: V(-17, DECK_Y + 10.2, 14.15), drop: 4.5, yaw: Math.PI },
-        { anchor: V(28, DECK_Y + 34, 2.6), drop: 3.5, yaw: Math.PI },
-        { anchor: V(15, DECK_Y + 0.6, HULL_FRONT + 0.55), drop: 4.5, yaw: Math.PI },
-        // På benens sidor som vetter mot kameran
-        { anchor: V(-19.975, 74, -13.3), drop: 4, yaw: 2.618 },
-        { anchor: V(-19.975, 46, 16.7), drop: 5, yaw: 2.618 },
-        { anchor: V(18.025, 60, 16.7), drop: 4.5, yaw: 2.618 },
+        chord(-21.42, 15, 62, -1, 0, 5),
+        chord(-17.79, 17.1, 48, 0.5, 0.866, 5),
+        chord(-17.79, -12.9, 74, 0.5, 0.866, 4),
+        chord(20.21, 17.1, 56, 0.5, 0.866, 4.5),
+        { wall: V(15, DECK_Y - 4, HULL_FRONT), normal: V(0, 0, 1), drop: 4.4 },
+        { wall: V(-17, DECK_Y + 5.5, 13.5), normal: V(0, 0, 1), drop: 4.6 },
+        { wall: V(-21, DECK_Y + 4, 18.5), normal: V(0, 0, 1), drop: 3.1 },
     ];
 
-    return { group, flare, beacons, introAnchor, hangSpots, flareTip };
+    return { group, flare, beacons, hangSpots, flareTip };
 }
 
 // Havet: vågnormaler i shadern, spegling av horisonten och facklans glitter.

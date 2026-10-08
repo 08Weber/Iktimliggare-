@@ -1,10 +1,9 @@
 // Bakgrundsvärlden: en oljerigg till havs om natten med brinnande fackla, fler riggar i fjärran
 // och klättrare som hänger i rep runt om. Scrollar du nedåt i appen sänks kameran längs riggen.
 import * as THREE from 'three';
-import { createView, makeEnvironment, dotTexture, ropeTexture, damp, COLORS } from './common.js';
-import { buildCarabiner } from './models.js';
+import { createView, makeEnvironment, dotTexture, damp, COLORS } from './common.js';
 import { buildRig, createFlare, createSea, DECK_Y, HULL_FRONT, INTRO_X } from './rig.js';
-import { createFigure, bakeFigure, poseValues } from './figure.js';
+import { createIntroClimber, createHangers } from './climber.js';
 
 const FOG = new THREE.Color('#07080c');
 const SKY_TOP = new THREE.Color('#050913');
@@ -12,8 +11,6 @@ const HORIZON_IDLE = new THREE.Color('#6a300a');
 const HORIZON_ACTIVE = new THREE.Color('#0a4a33');
 const DUST_IDLE = new THREE.Color('#ffd28a');
 const DUST_ACTIVE = new THREE.Color('#9ff5d0');
-const UP = new THREE.Vector3(0, 1, 0);
-const FORWARD = new THREE.Vector3(0, 0, 1);
 
 export function createBackground(canvas, state) {
     const view = createView(canvas, {
@@ -116,11 +113,10 @@ export function createBackground(canvas, state) {
     });
 
     // ---------- Klättrare som hänger runt riggen ----------
-    const hangers = makeHangers(rig.hangSpots, env, dot);
-    hangers.forEach(h => scene.add(h.pivot));
+    createHangers(scene, env, dot, rig.hangSpots);
 
     // ---------- Introts klättrare med lina och karbin ----------
-    const climber = createIntroClimber(scene, env, dot, rig.introAnchor);
+    const climber = createIntroClimber(scene, env, dot);
 
     // ---------- Damm/saltstänk som driver förbi ----------
     const dust = makeDust(dot, state.reduced ? 0 : 520);
@@ -170,10 +166,6 @@ export function createBackground(canvas, state) {
 
         if (!state.reduced) {
             dust.update(dt, t);
-            hangers.forEach(h => {
-                h.pivot.rotation.z = Math.sin(t * 0.5 + h.phase) * 0.025;
-                h.pivot.rotation.x = Math.sin(t * 0.37 + h.phase * 2) * 0.015;
-            });
         }
         climber.update(t, state.reduced);
 
@@ -211,170 +203,6 @@ export function createBackground(canvas, state) {
         setOverride(o) { override = o; },
         getCamera() { return { pos: camPos.clone(), look: camLook.clone() }; },
     };
-}
-
-// Introts klättrare: ledad figur, karbin och en lina från förankringen på däck, över kanten och ned.
-// Linan ritas alltid genom karbinens mitt och karbinen vrids längs linan – den kan inte klippa igenom.
-function createIntroClimber(scene, env, dot, anchor) {
-    const fig = createFigure(env);
-    scene.add(fig.root);
-
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: dot, color: '#fff1d6', transparent: true, opacity: 0.9, depthWrite: false,
-        blending: THREE.AdditiveBlending, toneMapped: false,
-    }));
-    glow.scale.setScalar(0.45);
-    fig.lampPoint.add(glow);
-    const headlamp = new THREE.SpotLight('#ffe8c2', 8, 9, 0.45, 0.6, 2);
-    const lampTarget = new THREE.Object3D();
-    lampTarget.position.set(0, -0.6, 2);
-    fig.lampPoint.add(headlamp, lampTarget);
-    headlamp.target = lampTarget;
-
-    const biner = buildCarabiner(env);
-    biner.group.scale.setScalar(0.7);
-    scene.add(biner.group);
-
-    // Linan består av raka bitar längs en bana av punkter
-    const ropeTex = ropeTexture('#f59e0b', '#7c2d12');
-    const segments = [0, 1, 2, 3].map(() => {
-        const map = ropeTex.clone();
-        map.needsUpdate = true;
-        const mesh = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.022, 0.022, 1, 8, 1, true),
-            new THREE.MeshStandardMaterial({ map, roughness: 0.8 })
-        );
-        scene.add(mesh);
-        return mesh;
-    });
-    const dir = new THREE.Vector3();
-    const setSegment = (mesh, a, b) => {
-        dir.subVectors(b, a);
-        const len = dir.length();
-        mesh.visible = len > 0.02;
-        if (!mesh.visible) return;
-        mesh.position.addVectors(a, b).multiplyScalar(0.5);
-        mesh.quaternion.setFromUnitVectors(UP, dir.normalize());
-        mesh.scale.set(1, len, 1);
-        mesh.material.map.repeat.set(1, len / 0.13);
-    };
-    const drawPath = points => segments.forEach((mesh, i) => {
-        if (i < points.length - 1) setSegment(mesh, points[i], points[i + 1]);
-        else mesh.visible = false;
-    });
-
-    const edge = new THREE.Vector3(INTRO_X, DECK_Y + 0.04, HULL_FRONT + 0.04);
-    const STAND_POS = new THREE.Vector3(INTRO_X, DECK_Y + 0.96, HULL_FRONT - 0.65);
-    const HANG_ROT = { x: -0.1, y: Math.PI };
-    const HANG_HARNESS = new THREE.Vector3(INTRO_X, DECK_Y - 2.3, HULL_FRONT + 0.55);
-
-    // Var kroppen ska vara för att selens fästpunkt ska hamna exakt där linan går
-    function solveHang() {
-        fig.setPose(poseValues('hang'));
-        fig.root.rotation.set(HANG_ROT.x, HANG_ROT.y, 0);
-        fig.root.position.copy(HANG_HARNESS);
-        fig.root.updateMatrixWorld(true);
-        const h = fig.harness.getWorldPosition(new THREE.Vector3());
-        return fig.root.position.clone().add(HANG_HARNESS.clone().sub(h));
-    }
-    const hangPos = solveHang();
-
-    // pull: hur långt linan lyfts från däcket upp till selen. binerIn: karbinen från handen till selen.
-    const climb = { pull: 1, binerIn: 1, sway: 1 };
-
-    const harnessW = new THREE.Vector3();
-    const handW = new THREE.Vector3();
-    const binerPos = new THREE.Vector3();
-    const slack = new THREE.Vector3();
-    const ropeAt = new THREE.Vector3();
-    const bottom = new THREE.Vector3();
-    const qHand = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.4, 0.9, 0.3));
-    const qRope = new THREE.Quaternion();
-
-    const api = {
-        fig, biner, climb, hangPos, HANG_ROT, STAND_POS,
-        setStanding() {
-            fig.setPose(poseValues('stand'));
-            fig.root.rotation.set(0, Math.PI, 0); // vänd mot förankringen, ryggen mot havet
-            fig.root.position.copy(STAND_POS);
-            Object.assign(climb, { pull: 0, binerIn: 0, sway: 0 });
-            biner.gate.rotation.z = biner.openAngle;
-            biner.material.emissiveIntensity = 0;
-            fig.walk = 0;
-        },
-        setHanging() {
-            fig.setPose(poseValues('hang'));
-            fig.root.rotation.set(HANG_ROT.x, HANG_ROT.y, 0);
-            fig.root.position.copy(hangPos);
-            Object.assign(climb, { pull: 1, binerIn: 1, sway: 1 });
-            biner.gate.rotation.z = biner.closedAngle;
-            fig.walk = 0;
-        },
-        update(t, reduced) {
-            fig.walkPhase = t * 7;
-            fig.root.rotation.z = reduced ? 0 : Math.sin(t * 0.7) * 0.03 * climb.sway; // sakta gungning
-            fig.apply();
-            fig.root.updateMatrixWorld(true);
-            fig.harness.getWorldPosition(harnessW);
-            fig.hand.getWorldPosition(handW);
-
-            binerPos.lerpVectors(handW, harnessW, climb.binerIn);
-            biner.group.position.copy(binerPos);
-
-            // Olyft ligger linan rakt från förankringen till kanten; lyft går den genom selen
-            const k = THREE.MathUtils.clamp((harnessW.z - anchor.z) / (edge.z - anchor.z), 0, 1);
-            slack.lerpVectors(anchor, edge, k);
-            ropeAt.lerpVectors(slack, harnessW, climb.pull);
-            let points;
-            if (climb.pull <= 0) points = [anchor, edge, bottom.set(edge.x, 0.2, edge.z)];
-            else if (ropeAt.z > edge.z) points = [anchor, edge, ropeAt, bottom.set(ropeAt.x, 0.2, ropeAt.z)];
-            else points = [anchor, ropeAt, edge, bottom.set(edge.x, 0.2, edge.z)];
-            drawPath(points);
-
-            const i = points.indexOf(ropeAt);
-            if (i > 0) {
-                dir.subVectors(points[i + 1], points[i - 1]).normalize();
-                qRope.setFromUnitVectors(FORWARD, dir);
-                biner.group.quaternion.slerpQuaternions(qHand, qRope, climb.binerIn);
-            } else {
-                biner.group.quaternion.copy(qHand);
-            }
-        },
-    };
-    api.setHanging();
-    return api;
-}
-
-// Fler klättrare i rep runt riggen. Varje figur är förbakad till en geometri (billigt att rita).
-function makeHangers(spots, env, dot) {
-    const template = createFigure(env);
-    template.setPose(poseValues('hang'));
-    template.root.rotation.set(-0.1, 0, 0);
-    const geometry = bakeFigure(template);
-    const harness = template.harness.getWorldPosition(new THREE.Vector3());
-    const lamp = template.lampPoint.getWorldPosition(new THREE.Vector3());
-    const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.65 });
-    const ropeMat = new THREE.MeshStandardMaterial({ color: '#f59e0b', emissive: '#9a3412', emissiveIntensity: 0.6, roughness: 0.8 });
-    const lampMat = new THREE.SpriteMaterial({
-        map: dot, color: '#fff1d6', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
-    });
-
-    return spots.map((spot, i) => {
-        const pivot = new THREE.Group();
-        pivot.position.copy(spot.anchor);
-        const body = new THREE.Mesh(geometry, material);
-        body.rotation.y = spot.yaw;
-        const h = harness.clone().applyAxisAngle(UP, spot.yaw);
-        body.position.set(-h.x, -spot.drop - h.y, -h.z);
-        const length = spot.drop + 7;
-        const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, length, 6, 1, true), ropeMat);
-        rope.position.y = -length / 2;
-        const glow = new THREE.Sprite(lampMat);
-        glow.scale.setScalar(0.9);
-        glow.position.copy(lamp).applyAxisAngle(UP, spot.yaw).add(body.position);
-        pivot.add(body, rope, glow);
-        return { pivot, phase: i * 1.9 };
-    });
 }
 
 function makeStars(dot) {

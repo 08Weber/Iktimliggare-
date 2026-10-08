@@ -123,7 +123,7 @@ export function createHero(canvas, state) {
 
     // Karbinen i selen som klickar när du stämplar in
     const biner = buildCarabiner(env);
-    biner.group.scale.setScalar(0.85);
+    biner.group.scale.setScalar(4.5); // karbinen är modellerad i verklig storlek (~11 cm)
     biner.group.position.set(0.02, -0.05, 0.3);
     biner.group.rotation.set(0.2, -0.4, 0.15);
     climber.add(biner.group);
