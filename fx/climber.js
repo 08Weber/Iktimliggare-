@@ -292,25 +292,67 @@ export function createIntroClimber(scene, env, dot) {
     const DECK = { normal: UP, toe: V(0, 0, -1) };
     const WALL = { normal: V(0, 0, 1), toe: UP };
     const foot = (x, y, z, s) => ({ pos: P(x, y, z), normal: s.normal, toe: s.toe });
-    const HANG = P(0, -2.35, 0.75);
+
+    // Nedfärden: jämn fart (ca 0,8 m/s) med mjuk start och inbromsning, som när man släpper
+    // repet genom nedfiraren och går baklänges ned för väggen.
+    const DESCENT = { t0: 5.9, t1: 8.4, ramp: 0.35, from: P(0, 0.28, 0.55), to: P(0, -1.72, 0.7) };
+    const descentU = t => {
+        const T = DESCENT.t1 - DESCENT.t0, r = DESCENT.ramp, v = 1 / (T - r);
+        const s = THREE.MathUtils.clamp(t - DESCENT.t0, 0, T);
+        if (s < r) return 0.5 * v * s * s / r;
+        if (s > T - r) return 1 - 0.5 * v * (T - s) * (T - s) / r;
+        return v * (s - r / 2);
+    };
+    const descentSpeed = t => { // 0 = stilla, 1 = full fart
+        const T = DESCENT.t1 - DESCENT.t0, r = DESCENT.ramp;
+        const s = THREE.MathUtils.clamp(t - DESCENT.t0, 0, T);
+        return Math.min(1, s / r, (T - s) / r);
+    };
+    const pelvisTrack = vec([
+        [0, P(0, 1, -0.62)], [1.0, P(0, 1, -0.62)], [1.3, P(-0.04, 0.9, -0.6)], [1.62, P(0, 0.99, -0.62)],
+        [1.8, P(0, 1, -0.62)], [2.05, P(0.04, 0.9, -0.6)], [2.4, P(0, 1, -0.62)], [3.6, P(0, 1, -0.62)],
+        [3.85, P(-0.03, 0.96, -0.7)], [4.15, P(0, 1, -0.62)], [4.2, P(0, 1, -0.62)], [4.75, P(0, 1, -0.3)],
+        [4.85, P(0, 1, -0.3)], [5.3, P(0, 0.62, 0.22)], [5.65, DESCENT.from], [DESCENT.t0, DESCENT.from],
+    ]);
+    const pelvisAt = (t, out) => t <= DESCENT.t0
+        ? pelvisTrack(t, out)
+        : out.lerpVectors(DESCENT.from, DESCENT.to, descentU(t));
+
+    // Gången nedför väggen: fötterna turas om och tar korta steg. Varje fot landar en bit under
+    // där bäckenet befinner sig mitt i nästa stödfas – då är benen hela tiden lätt böjda och
+    // sulan står plant mot väggen, i stället för att knäna viks upp mot bröstet. När farten
+    // minskar hamnar fötterna längre ned, så att benen är nästan raka när han hänger still.
+    const STEP_EVERY = 0.3, SWING = 0.25;
+    const footDrop = t => 0.3 + 0.16 * (1 - descentSpeed(t));
+    const walk = (x, startY, firstLift, yOffset) => {
+        const list = [];
+        const pv = V();
+        let y = startY;
+        for (let t0 = firstLift; t0 < DESCENT.t1; t0 += 2 * STEP_EVERY) {
+            const t1 = t0 + SWING;
+            const mid = t1 + (2 * STEP_EVERY - SWING) / 2;
+            const next = pelvisAt(mid, pv).y - D - footDrop(mid) + yOffset;
+            if (y - next < 0.04) continue; // för litet steg – foten står kvar
+            list.push([t0, t1, foot(x, next, 0, WALL)]);
+            y = next;
+        }
+        return list;
+    };
+
     const C = {
-        pelvis: vec([
-            [0, P(0, 1, -0.62)], [1.0, P(0, 1, -0.62)], [1.3, P(-0.04, 0.9, -0.6)], [1.62, P(0, 0.99, -0.62)],
-            [1.8, P(0, 1, -0.62)], [2.05, P(0.04, 0.9, -0.6)], [2.4, P(0, 1, -0.62)], [3.6, P(0, 1, -0.62)],
-            [3.85, P(-0.03, 0.96, -0.7)], [4.15, P(0, 1, -0.62)], [4.2, P(0, 1, -0.62)], [4.75, P(0, 1, -0.3)],
-            [4.85, P(0, 1, -0.3)], [5.3, P(0, 0.62, 0.22)], [5.65, P(0, 0.28, 0.55)], [5.9, P(0, 0.28, 0.55)],
-            [6.9, HANG, 'lin'],
-        ]),
-        pitch: num([[4.85, 0], [5.3, -0.55], [5.65, -0.35], [6.9, -0.12]]),
+        pelvis: pelvisAt,
+        pitch: num([[4.85, 0], [5.3, -0.55], [5.65, -0.35], [6.6, -0.15]]),
         spine: num([[0, 0.05], [1.0, 0.05], [1.3, 0.35], [1.62, 0.12], [1.8, 0.1], [2.05, 0.35], [2.4, 0.12],
-            [2.6, 0.2], [3.2, 0.2], [3.6, 0.12], [3.85, 0.4], [4.15, 0.1], [4.85, 0.1], [5.3, 0.3], [5.65, 0.2], [6.9, 0.12]]),
+            [2.6, 0.2], [3.2, 0.2], [3.6, 0.12], [3.85, 0.4], [4.15, 0.1], [4.85, 0.1], [5.3, 0.3], [5.65, 0.2], [6.6, 0.12]]),
         chest: num([[0, 0.02], [1.3, 0.2], [1.62, 0.05], [2.05, 0.2], [2.4, 0.05], [2.6, 0.12], [3.2, 0.12],
-            [3.6, 0.05], [3.85, 0.2], [4.15, 0.04], [5.3, 0.15], [6.9, 0.08]]),
+            [3.6, 0.05], [3.85, 0.2], [4.15, 0.04], [5.3, 0.15], [6.6, 0.08]]),
+        // Under nedfärden tittar han ned över axeln mot där han ska, sedan in mot väggen
         neckX: num([[0, 0.1], [0.6, 0.35], [1.0, 0.35], [1.3, 0.45], [1.8, 0.4], [2.05, 0.45], [2.4, 0.45],
-            [2.6, 0.65], [3.2, 0.65], [3.6, 0.3], [3.85, 0.35], [4.2, 0.2], [4.85, 0.2], [5.3, 0.25], [5.9, 0.35], [6.9, -0.1]]),
+            [2.6, 0.65], [3.2, 0.65], [3.6, 0.3], [3.85, 0.35], [4.2, 0.2], [4.85, 0.2], [5.3, 0.25], [5.9, 0.35],
+            [7.6, 0.35], [8.4, 0.05]]),
         neckY: num([[0, 0], [0.3, 0.6], [0.7, 0.6], [1.0, 0.35], [1.62, 0.35], [1.8, -0.35], [2.4, -0.35], [2.6, 0],
-            [3.6, 0], [3.85, 0.45], [4.15, 0.3], [4.4, 0], [5.3, 0], [5.6, -0.35], [6.0, -0.35], [6.9, 0]]),
-        kneeUp: num([[5.3, 0], [5.65, 1.3], [6.9, 2]]),
+            [3.6, 0], [3.85, 0.45], [4.15, 0.3], [4.4, 0], [5.3, 0], [5.6, -0.35], [7.6, -0.35], [8.4, 0]]),
+        kneeUp: num([[5.3, 0], [5.65, 1.1]]),
         pullB: num([[1.3, 0], [1.6, 1]]),
         pullW: num([[2.05, 0], [2.4, 1]]),
         plate: num([[2.36, 1], [2.46, 0]]),
@@ -320,24 +362,21 @@ export function createIntroClimber(scene, env, dot) {
             [4.45, 4.7, foot(-0.13, 0, -0.28, DECK)],
             [4.95, 5.1, foot(-0.13, 0, -0.14, DECK)],
             [5.55, 5.9, foot(-0.13, -0.4, 0, WALL), P(-0.13, 0.18, 0.28)],
-            [6.15, 6.4, foot(-0.13, -1.5, 0, WALL)],
-            [6.55, 6.8, foot(-0.13, -2.55, 0, WALL)],
+            ...walk(-0.15, -0.4, 6.25, -0.04),
         ]),
         footR: steps(foot(0.13, 0, -0.6, DECK), [
             [4.2, 4.45, foot(0.13, 0, -0.28, DECK)],
             [4.85, 5.0, foot(0.13, 0, -0.14, DECK)],
             [5.3, 5.65, foot(0.13, -0.38, 0, WALL), P(0.13, 0.22, 0.28)],
-            [5.95, 6.2, foot(0.13, -0.95, 0, WALL)],
-            [6.35, 6.6, foot(0.13, -2.0, 0, WALL)],
-            [6.75, 6.95, foot(0.13, -2.42, 0, WALL)],
+            ...walk(0.15, -0.38, 5.95, 0.03),
         ]),
         handL: handTrack([[0, 0, 'free'], [1.0, 1.3, 'ropeB'], [3.6, 3.82, 'cow'], [4.15, 4.4, 'handle']]),
         handR: handTrack([[0, 0, 'free'], [1.75, 2.05, 'ropeW'], [2.45, 2.65, 'sleeve'], [3.15, 3.45, 'brake']]),
     };
-    const END = 7.0;
+    const END = 8.6;
 
     // ---------- Beräkning per bildruta ----------
-    const pelvis = V(), pole = V();
+    const pelvis = V(), pole = V(), poleL = V(), poleR = V();
     const fL = { pos: V(), normal: V(), toe: V() }, fR = { pos: V(), normal: V(), toe: V() };
     const g = gearState();
     const uW = V(), vB = V(), uRest = V(), tmp = V(), tmp2 = V();
@@ -410,12 +449,12 @@ export function createIntroClimber(scene, env, dot) {
             neckX: C.neckX(t), neckY: C.neckY(t),
         });
         const { axes } = fig;
-        // Ben: fötterna på däcket eller väggen, knäna framåt/uppåt
+        // Ben: fötterna på däcket eller väggen, knäna framåt/uppåt och lite isär
         pole.copy(axes.flatFwd).addScaledVector(UP, C.kneeUp(t)).normalize();
         C.footL(t, fL);
         C.footR(t, fR);
-        fig.solveLeg('L', fL.pos, fL.normal, fL.toe, pole);
-        fig.solveLeg('R', fR.pos, fR.normal, fR.toe, pole);
+        fig.solveLeg('L', fL.pos, fL.normal, fL.toe, poleL.copy(pole).addScaledVector(axes.right, -0.3).normalize());
+        fig.solveLeg('R', fR.pos, fR.normal, fR.toe, poleR.copy(pole).addScaledVector(axes.right, 0.3).normalize());
 
         // Utrustningen
         sample.pullW = C.pullW(t);
@@ -521,9 +560,10 @@ export function createHangers(scene, env, dot, spots) {
     // Ställ figuren hängande vänd mot +z med väggen framför sig
     fig.setBody({ pos: V(0, 0, 0), yaw: 0, pitch: -0.12, spineBend: 0.12, chestBend: 0.08, neckX: -0.1 });
     const wallN = V(0, 0, -1), toe = UP;
-    const pole = V(0, 2, 1).normalize();
-    fig.solveLeg('L', V(0.13, -0.2, STANDOFF), wallN, toe, pole);
-    fig.solveLeg('R', V(-0.13, -0.07, STANDOFF), wallN, toe, pole);
+    // Fötterna en bit under sätet så att benen är nästan raka (som introts klättrare när han stannat)
+    const pole = V(0, 1.1, 1).normalize();
+    fig.solveLeg('L', V(0.15, -0.48, STANDOFF), wallN, toe, V().copy(pole).add(V(0.3, 0, 0)).normalize());
+    fig.solveLeg('R', V(-0.15, -0.41, STANDOFF), wallN, toe, V().copy(pole).add(V(-0.3, 0, 0)).normalize());
     const g = gearState();
     const vB = V().copy(UP).addScaledVector(fig.axes.right, -0.35).normalize();
     placeGear(fig, gear, { uW: UP, vB, pullB: 1 }, g);

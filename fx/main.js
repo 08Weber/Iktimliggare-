@@ -57,7 +57,7 @@ function start() {
 
     window.fx = { playIntro: runIntro, enableGyro, disableGyro };
     window.__fxReady = true;
-    if (localStorage.getItem('fx_gyro') === 'true') enableGyro();
+    try { if (localStorage.getItem('fx_gyro') === 'true') enableGyro(); } catch (e) {}
 
     requestAnimationFrame(loop);
     if (root.classList.contains('intro-pending')) runIntro();

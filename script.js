@@ -1,5 +1,14 @@
 // ---------- State ----------
 
+// localStorage kan kasta fel (t.ex. Safari med blockerade cookies) – då ska appen ändå starta.
+function readItem(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+
+function writeItem(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) {}
+}
+
 function loadJSON(key, fallback) {
     try {
         const raw = localStorage.getItem(key);
@@ -11,9 +20,9 @@ function loadJSON(key, fallback) {
 
 let entries = loadJSON('work_hours', []);
 let activeEntry = loadJSON('active_session', null);
-let hourlyWage = parseFloat(localStorage.getItem('hourly_wage')) || 0;
-let includeVacation = localStorage.getItem('include_vacation') === 'true';
-let soundOn = localStorage.getItem('sound_on') !== 'false';
+let hourlyWage = parseFloat(readItem('hourly_wage')) || 0;
+let includeVacation = readItem('include_vacation') === 'true';
+let soundOn = readItem('sound_on') !== 'false';
 let timerInterval = null;
 let toastTimeout = null;
 let openPanel = null;
@@ -253,10 +262,10 @@ function resolveDialog(ok) {
 // ---------- Inställningar ----------
 
 function openSettingsModal() {
-    document.getElementById('settingsWage').value = hourlyWage || '';
+    document.getElementById('settingsWage').value = hourlyWage ? String(hourlyWage).replace('.', ',') : '';
     document.getElementById('settingsVacation').checked = includeVacation;
-    document.getElementById('settingsFx').checked = localStorage.getItem('fx_disabled') !== 'true';
-    document.getElementById('settingsGyro').checked = localStorage.getItem('fx_gyro') === 'true';
+    document.getElementById('settingsFx').checked = readItem('fx_disabled') !== 'true';
+    document.getElementById('settingsGyro').checked = readItem('fx_gyro') === 'true';
     document.getElementById('settingsSound').checked = soundOn;
     // Lutning finns bara på telefoner/surfplattor
     const hasGyro = 'ontouchstart' in window && 'DeviceOrientationEvent' in window;
@@ -269,22 +278,23 @@ function closeSettingsModal() {
 }
 
 function saveSettings() {
-    hourlyWage = parseFloat(document.getElementById('settingsWage').value) || 0;
+    // Svenskt tangentbord ger decimalkomma ("182,50")
+    hourlyWage = Math.max(0, parseFloat(document.getElementById('settingsWage').value.replace(',', '.')) || 0);
     includeVacation = document.getElementById('settingsVacation').checked;
     soundOn = document.getElementById('settingsSound').checked;
-    localStorage.setItem('hourly_wage', hourlyWage);
-    localStorage.setItem('include_vacation', includeVacation);
-    localStorage.setItem('sound_on', soundOn);
+    writeItem('hourly_wage', hourlyWage);
+    writeItem('include_vacation', includeVacation);
+    writeItem('sound_on', soundOn);
 
     // Gyrot måste slås på direkt i trycket – annars får iOS inte fråga om lov.
     const gyro = document.getElementById('settingsGyro').checked;
-    localStorage.setItem('fx_gyro', gyro);
+    writeItem('fx_gyro', gyro);
     if (gyro) window.fx?.enableGyro();
     else window.fx?.disableGyro();
 
     const fxWanted = document.getElementById('settingsFx').checked;
-    const fxWasOn = localStorage.getItem('fx_disabled') !== 'true';
-    localStorage.setItem('fx_disabled', !fxWanted);
+    const fxWasOn = readItem('fx_disabled') !== 'true';
+    writeItem('fx_disabled', !fxWanted);
 
     closeSettingsModal();
     updateStats();
@@ -327,7 +337,9 @@ function closeExportModal() {
 function buildExportReport() {
     const period = document.getElementById('exportPeriodSelect').value;
     const isAll = period === "ALL";
-    const filteredEntries = isAll ? entries : entries.filter(e => getPayPeriod(e.date) === period);
+    // Äldst först, så att rapporten läses som en tidslinje oavsett i vilken ordning passen lades in
+    const filteredEntries = (isAll ? [...entries] : entries.filter(e => getPayPeriod(e.date) === period))
+        .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.startTime || '').localeCompare(b.startTime || ''));
     if (filteredEntries.length === 0) {
         showToast("Inga pass i vald period.", "warning");
         return null;
@@ -1031,3 +1043,14 @@ initLogoHold();
 render();
 if (activeEntry) startTimer();
 requestPersistentStorage();
+
+// Appen kan ligga öppen i bakgrunden i flera dagar (hemskärmsappen på iPhone). När den visas
+// igen ritas allt om så att dagens datum, löneperioden och skylinen stämmer.
+let lastShownDate = localDateString();
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden || localDateString() === lastShownDate) return;
+    lastShownDate = localDateString();
+    document.getElementById('manualDate').value = lastShownDate;
+    lastClockKey = null;
+    render();
+});
