@@ -299,7 +299,9 @@ function saveSettings() {
 
 // ---------- Export ----------
 
-function openExportModal() {
+const BOSS_EMAIL = 'christopher@industriklattrarna.se';
+
+function openExportModal(mode = 'export') {
     if (entries.length === 0) {
         showToast("Det finns inga pass att exportera.", "warning");
         return;
@@ -309,6 +311,12 @@ function openExportModal() {
     document.getElementById('exportPeriodSelect').innerHTML =
         sortedPeriods.map(p => `<option value="${p}">${formatPayPeriod(p)}</option>`).join('') +
         '<option value="ALL">Exportera alla pass i historiken</option>';
+
+    const isMail = mode === 'mail';
+    document.getElementById('exportTitle').textContent = isMail ? 'Maila Löneperiod' : 'Exportera Löneperiod';
+    const confirmBtn = document.getElementById('exportConfirmBtn');
+    confirmBtn.textContent = isMail ? 'Skicka mail' : 'Spara CSV-fil';
+    confirmBtn.onclick = isMail ? executeMail : executeExport;
     showPanel(exportModalPanel);
 }
 
@@ -316,13 +324,13 @@ function closeExportModal() {
     hidePanel(exportModalPanel);
 }
 
-function executeExport() {
+function buildExportReport() {
     const period = document.getElementById('exportPeriodSelect').value;
     const isAll = period === "ALL";
     const filteredEntries = isAll ? entries : entries.filter(e => getPayPeriod(e.date) === period);
     if (filteredEntries.length === 0) {
         showToast("Inga pass i vald period.", "warning");
-        return;
+        return null;
     }
 
     const headers = ['Datum', 'Starttid', 'Sluttid', 'Timmar', 'Anteckningar'];
@@ -336,18 +344,61 @@ function executeExport() {
     rows.push(['', '', 'TOTAL TIMMAR:', formatHoursCSV(totalHours), '']);
 
     const csvContent = [headers, ...rows].map(r => r.join(';')).join('\n');
-    const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    return {
+        blob: new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' }),
+        filename: `Tidrapport_Industriklattrarna_${isAll ? 'Alla_pass' : `Löneperiod_${period}`}.csv`,
+        label: isAll ? 'alla pass' : `löneperiod ${formatPayPeriod(period)}`,
+        totalHours
+    };
+}
+
+function downloadReport(report) {
+    const url = URL.createObjectURL(report.blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Tidrapport_Industriklattrarna_${isAll ? 'Alla_pass' : `Löneperiod_${period}`}.csv`;
+    link.download = report.filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
+function executeExport() {
+    const report = buildExportReport();
+    if (!report) return;
+    downloadReport(report);
     closeExportModal();
     showToast("Tidrapport exporterad!");
+}
+
+// Webbläsare kan inte bifoga filer via mailto:, så på enheter med delningsmeny
+// (mobil) delas filen direkt till mailappen. Annars laddas filen ner och ett
+// färdigadresserat mail öppnas där filen dras in.
+async function executeMail() {
+    const report = buildExportReport();
+    if (!report) return;
+
+    const subject = `Tidrapport Industriklättrarna – ${report.label}`;
+    const body = `Hej Christopher!\n\nHär kommer min tidrapport för ${report.label} ` +
+        `(totalt ${formatHoursCSV(report.totalHours)} timmar). CSV-filen är bifogad.\n\nMvh`;
+    const file = new File([report.blob], report.filename, { type: 'text/csv' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.clipboard.writeText(BOSS_EMAIL); } catch (e) { /* inte kritiskt */ }
+        try {
+            await navigator.share({ files: [file], title: subject, text: `Till: ${BOSS_EMAIL}\n\n${body}` });
+            closeExportModal();
+            showToast("Tidrapport delad!");
+            return;
+        } catch (e) {
+            if (e.name === 'AbortError') return;
+        }
+    }
+
+    downloadReport(report);
+    window.location.href = `mailto:${BOSS_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    closeExportModal();
+    showToast("Mailet öppnat – bifoga den nedladdade CSV-filen.", "info");
 }
 
 // ---------- Pass ----------

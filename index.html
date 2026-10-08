@@ -219,9 +219,14 @@
                     </h2>
                     <p class="text-zinc-400 text-xs">Alla tider kan ändras direkt i fälten och sparas automatiskt.</p>
                 </div>
-                <button onclick="openExportModal()" class="btn-3d btn-ghost text-sm group">
-                    <i class="ph ph-download-simple text-lg group-hover:text-emerald-400"></i> Exportera till Chef
-                </button>
+                <div class="flex flex-col gap-2">
+                    <button onclick="openExportModal()" class="btn-3d btn-ghost text-sm group">
+                        <i class="ph ph-download-simple text-lg group-hover:text-emerald-400"></i> Exportera till Chef
+                    </button>
+                    <button onclick="openExportModal('mail')" class="btn-3d btn-ghost text-sm group">
+                        <i class="ph ph-envelope-simple text-lg group-hover:text-emerald-400"></i> Maila till Chef
+                    </button>
+                </div>
             </div>
 
             <div id="historyList" class="space-y-6">
@@ -362,7 +367,7 @@
 
             <div class="flex justify-end gap-3 pt-1">
                 <button onclick="closeExportModal()" class="btn-3d btn-ghost text-sm">Avbryt</button>
-                <button onclick="executeExport()" class="btn-3d btn-emerald text-sm">Spara CSV-fil</button>
+                <button id="exportConfirmBtn" onclick="executeExport()" class="btn-3d btn-emerald text-sm">Spara CSV-fil</button>
             </div>
         </div>
     </section>
